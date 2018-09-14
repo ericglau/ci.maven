@@ -3,6 +3,25 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+<repositories>
+        <repository>
+            <id>api</id>
+            <name>api</name>
+            <url>https://oss.sonatype.org/content/repositories/comibmwebsphereappserverapi-1033/</url>
+        </repository>
+        <repository>
+            <id>spi</id>
+            <name>spi</name>
+            <url>https://oss.sonatype.org/content/repositories/comibmwebsphereappserverspi-1028/</url>
+        </repository>
+        <repository>
+            <id>ol</id>
+            <name>ol</name>
+            <url>https://oss.sonatype.org/content/repositories/ioopenliberty-1035/</url>
+        </repository>
+    </repositories>
+
+
     <groupId>net.wasdev.wlp.maven.it</groupId>
     <artifactId>tests</artifactId>
     <packaging>pom</packaging>

@@ -19,12 +19,9 @@
                 <artifactId>liberty-maven-plugin</artifactId>
                 <version>@pom.version@</version>
                 <configuration>
-                    <assemblyArtifact>
-                        <groupId>${runtimeGroupId}</groupId>
-                        <artifactId>${runtimeKernelId}</artifactId>
-                        <version>18.0.0.2</version>
-                        <type>zip</type>
-                    </assemblyArtifact>
+<assemblyArchive>
+                            	/Users/eric/Downloads/openliberty-kernel-18.0.0.3-cl180320180905-2337.zip
+                            </assemblyArchive>
                     <serverName>test</serverName>
                 </configuration>
                 <executions>
