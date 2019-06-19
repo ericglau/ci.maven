@@ -86,6 +86,8 @@ public class DevMojo extends StartDebugMojoSupport {
 
     private int runId = 0;
 
+    private boolean restartedDevMode = false;
+
     private ServerTask serverTask = null;
 
     @Component
@@ -545,9 +547,12 @@ public class DevMojo extends StartDebugMojoSupport {
             executor.shutdown();
             // cleaning up jvm options
             cleanUpJVMOptions();
+
             // stopping server
             stopServer();
-            
+
+            cleanUpServerEnv();
+
             log.info("Restarting liberty:dev mode");
             ProcessBuilder processBuilder = new ProcessBuilder();
             String processCommand = "mvn liberty:dev";
@@ -571,6 +576,14 @@ public class DevMojo extends StartDebugMojoSupport {
             } catch (IOException e) {
                 log.error("Could not restart liberty:dev mode", e);
             }
+
+            restartedDevMode = true;
+            //System.exit(0);
+        }
+
+        @Override
+        public boolean isRestarted() {
+            return restartedDevMode;
         }
     }
 
