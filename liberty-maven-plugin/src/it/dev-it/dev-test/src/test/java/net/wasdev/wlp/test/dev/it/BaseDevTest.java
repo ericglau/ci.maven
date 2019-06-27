@@ -38,6 +38,7 @@ public class BaseDevTest {
     public void basicTest() throws Exception {
         // set up project
         File basicProj = Files.createTempDirectory("test").toFile();
+        System.out.println(basicProj.getAbsolutePath());
         assertTrue(basicProj.exists());
 
         File basicDevProj = new File("resources/basic-dev-project");
@@ -81,10 +82,12 @@ public class BaseDevTest {
             writer.write("exit"); // trigger dev mode to shut down
             writer.flush();
             writer.close();
-            Thread.sleep(1000); // wait for dev mode to shut down
+            Thread.sleep(5000); // wait for dev mode to shut down
             
+            System.out.println("logfile: " + logFile.getAbsolutePath());
+
             // test that dev mode has stopped running
-            assertTrue(readFile("Server defaultServer stopped.", logFile));
+            assertTrue(readFile("Server defaultServer stopped", logFile));
             assertFalse(readFile("Error", logFile));
 
         } catch (IOException e) {
