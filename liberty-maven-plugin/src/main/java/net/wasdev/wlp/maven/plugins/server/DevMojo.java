@@ -71,6 +71,7 @@ import org.twdata.maven.mojoexecutor.MojoExecutor.Element;
 
 import net.wasdev.wlp.ant.ServerTask;
 import net.wasdev.wlp.common.plugins.util.DevUtil;
+import net.wasdev.wlp.common.plugins.util.PluginExecutionException;
 import net.wasdev.wlp.common.plugins.util.ServerFeatureUtil;
 
 /**
@@ -515,7 +516,7 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         @Override
-        public void checkConfigFile(File configFile, File serverDir) {
+        public void checkConfigFile(File configFile, File serverDir) throws PluginExecutionException {
             try {
                 ServerFeature servUtil = getServerFeatureUtil();
                 Set<String> features = servUtil.getServerFeatures(serverDir);
@@ -528,12 +529,12 @@ public class DevMojo extends StartDebugMojoSupport {
                     this.existingFeatures.addAll(features);
                 }
             } catch (MojoExecutionException e) {
-                log.error("Failed to install features from configuration file", e);
+                throw new PluginExecutionException("Failed to install features from configuration file", e);
             }
         }
 
         @Override
-        public boolean compile(File dir) {
+        public void compile(File dir) throws PluginExecutionException {
             try {
                 if (dir.equals(sourceDirectory)) {
                     log.info("Running maven-compiler-plugin:compile");
@@ -548,10 +549,8 @@ public class DevMojo extends StartDebugMojoSupport {
                     log.info("Running maven-compiler-plugin:testResources");
                     runMojo("org.apache.maven.plugins:maven-resources-plugin", "testResources", null, null);
                 }
-                return true;
             } catch (MojoExecutionException e) {
-                log.error("Unable to compile", e);
-                return false;
+                throw new PluginExecutionException("Unable to compile", e);
             }
         }
     }
