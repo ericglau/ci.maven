@@ -56,10 +56,7 @@ public class BaseDevTest {
    static Process process;
 
    protected static void setUpBeforeClass(String devModeParams) throws IOException, InterruptedException, FileNotFoundException {
-      String os = System.getProperty("os.name");
-      if (os != null && os.toLowerCase().startsWith("windows")) {
-         isWindows = true;
-      }
+      
 
       if (!isWindows) { // skip tests on windows until server.env bug is fixed
 
