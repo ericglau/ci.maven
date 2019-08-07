@@ -555,6 +555,7 @@ public class DevMojo extends StartDebugMojoSupport {
             injectTestId(config);
         } else if (phase.equals("integration-test")) {
             injectTestId(config);
+            injectLibertyProperties(config);
             // clean up previous summary file
             File summaryFile = null;
             Xpp3Dom summaryFileElement = config.getChild("summaryFile");
@@ -594,6 +595,25 @@ public class DevMojo extends StartDebugMojoSupport {
             config.addChild(e.toDom());
         } else {
             properties.getChild(TEST_RUN_ID_PROPERTY_NAME).setValue(String.valueOf(runId++));
+        }
+    }
+
+    /**
+     * Add Liberty system properties for tests to consume.
+     *
+     * @param config
+     *            The configuration element
+     */
+    private void injectLibertyProperties(Xpp3Dom config) {
+        Xpp3Dom sysProps = config.getChild("systemPropertyVariables");
+        if (sysProps == null) {
+            Element e = element(name("systemPropertyVariables"));
+            sysProps = e.toDom();
+            config.addChild(sysProps);
+        }
+        // don't overwrite existing configs if they are already defined
+        if (sysProps.getChild("liberty.http.port") == null) {
+            sysProps.addChild(element(name("liberty.http.port"), String.valueOf(9080)).toDom());
         }
     }
 
