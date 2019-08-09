@@ -601,10 +601,10 @@ public class DevMojo extends StartDebugMojoSupport {
     /**
      * Add Liberty system properties for tests to consume.
      *
-     * @param config
-     *            The configuration element
+     * @param config The configuration element
+     * @throws MojoExecutionException if the userDirectory canonical path cannot be resolved
      */
-    private void injectLibertyProperties(Xpp3Dom config) {
+    private void injectLibertyProperties(Xpp3Dom config) throws MojoExecutionException {
         Xpp3Dom sysProps = config.getChild("systemPropertyVariables");
         if (sysProps == null) {
             Element e = element(name("systemPropertyVariables"));
@@ -612,8 +612,18 @@ public class DevMojo extends StartDebugMojoSupport {
             config.addChild(sysProps);
         }
         // don't overwrite existing configs if they are already defined
+        /* TODO
         if (sysProps.getChild("liberty.http.port") == null) {
             sysProps.addChild(element(name("liberty.http.port"), String.valueOf(9080)).toDom());
+        }*/
+
+        if (sysProps.getChild("liberty.user.dir") == null) {
+            // pass in userDirectory parameter
+            try {
+                sysProps.addChild(element(name("liberty.user.dir"), userDirectory.getCanonicalPath()).toDom());
+            } catch (IOException e) {
+                throw new MojoExecutionException("Could not resolve canonical path of userDirectory parameter: " + userDirectory.getAbsolutePath(), e);
+            }
         }
     }
 
