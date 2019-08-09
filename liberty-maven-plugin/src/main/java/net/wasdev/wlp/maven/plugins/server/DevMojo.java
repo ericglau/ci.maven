@@ -611,12 +611,7 @@ public class DevMojo extends StartDebugMojoSupport {
             sysProps = e.toDom();
             config.addChild(sysProps);
         }
-        // don't overwrite existing configs if they are already defined
-        /* TODO
-        if (sysProps.getChild("liberty.http.port") == null) {
-            sysProps.addChild(element(name("liberty.http.port"), String.valueOf(9080)).toDom());
-        }*/
-
+        // don't overwrite existing properties if they are already defined
         if (sysProps.getChild("liberty.user.dir") == null) {
             // pass in userDirectory parameter
             try {
