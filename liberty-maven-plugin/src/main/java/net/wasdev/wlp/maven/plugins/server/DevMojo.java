@@ -67,6 +67,7 @@ import net.wasdev.wlp.common.plugins.util.DevUtil;
 import net.wasdev.wlp.common.plugins.util.PluginExecutionException;
 import net.wasdev.wlp.common.plugins.util.PluginScenarioException;
 import net.wasdev.wlp.common.plugins.util.ServerFeatureUtil;
+import net.wasdev.wlp.maven.plugins.ServerConfigDocument;
 import net.wasdev.wlp.maven.plugins.utils.MavenProjectUtil;
 
 /**
@@ -611,7 +612,25 @@ public class DevMojo extends StartDebugMojoSupport {
             sysProps = e.toDom();
             config.addChild(sysProps);
         }
-        // don't overwrite existing properties if they are already defined
+        // don't overwrite existing configs if they are already defined
+        
+        if (sysProps.getChild("liberty.http.port") == null) {
+            //sysProps.addChild(element(name("liberty.http.port"), String.valueOf(9080)).toDom());
+            File serverXML = new File(serverDirectory, "server.xml");
+            ServerConfigDocument scd = null;
+            if (serverXML != null && serverXML.exists()) {
+                try {
+                    scd = ServerConfigDocument.getInstance(log, serverXML, configDirectory,
+                            bootstrapPropertiesFile, bootstrapProperties, serverEnv);
+                } catch (Exception e) {
+                    log.warn(e.getLocalizedMessage());
+                    log.debug(e);
+                }
+            }
+            log.info("===== SERVER CONFIG DOCUMENT!!! " + scd.getLocations().toString() + " =====");
+
+        }
+
         if (sysProps.getChild("liberty.user.dir") == null) {
             // pass in userDirectory parameter
             try {
