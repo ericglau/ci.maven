@@ -40,6 +40,7 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.maven.plugin.logging.Log;
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
@@ -146,13 +147,17 @@ public class ServerConfigDocument {
             // Server variable precedence in ascending order if defined in
             // multiple locations.
             //
-            // 1. variables from 'server.env'
-            // 2. variables from 'bootstrap.properties'
-            // 3. variables defined in <include/> files
-            // 4. variables from configDropins/defaults/<file_name>
-            // 5. variables defined in server.xml
-            // e.g. <variable name="myVarName" value="myVarValue" />
-            // 6. variables from configDropins/overrides/<file_name>
+            // 1. variables (default values) defined in server.xml
+            //    e.g. <variable name="myVarName" defaultValue="myDefaultValue" />
+            // 2. variables from 'server.env'
+            // 3. variables from 'bootstrap.properties'
+            // 4. variables defined in <include/> files
+            // 5. variables from configDropins/defaults/<file_name>
+            // 6. variables (values) defined in server.xml
+            //    e.g. <variable name="myVarName" value="myVarValue" />
+            // 7. variables from configDropins/overrides/<file_name>
+
+            parseDefaultVariables(doc);
 
             Properties fProps;
             // get variables from server.env
@@ -375,17 +380,28 @@ public class ServerConfigDocument {
         return resolved;
     }
 
+    private static void parseDefaultVariables(Document doc) throws XPathExpressionException {
+        parseVariables(doc, "defaultValue");
+    }
+
     private static void parseVariables(Document doc) throws XPathExpressionException {
+        parseVariables(doc, "value");
+    }
+
+    private static void parseVariables(Document doc, String attributeName) throws XPathExpressionException {
         // parse input document
         NodeList nodeList = (NodeList) XPATH_SERVER_VARIABLE.evaluate(doc, XPathConstants.NODESET);
 
         for (int i = 0; i < nodeList.getLength(); i++) {
-            String varName = nodeList.item(i).getAttributes().getNamedItem("name").getNodeValue();
-            String varValue = nodeList.item(i).getAttributes().getNamedItem("value").getNodeValue();
+            Node nameNode = nodeList.item(i).getAttributes().getNamedItem("name");
+            Node valueNode = nodeList.item(i).getAttributes().getNamedItem(attributeName);
+
+            String name = nameNode != null ? nameNode.getNodeValue() : "";
+            String value = valueNode != null ? valueNode.getNodeValue() : "";
 
             // add unique values only
-            if (!varName.isEmpty() && !varValue.isEmpty()) {
-                props.put(varName, varValue);
+            if (!name.isEmpty() && !value.isEmpty()) {
+                props.put(name, value);
             }
         }
     }
