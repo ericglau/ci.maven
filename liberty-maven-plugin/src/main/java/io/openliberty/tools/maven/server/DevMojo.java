@@ -258,6 +258,7 @@ public class DevMojo extends StartDebugMojoSupport {
                 serverTask.setClean(clean);
                 if (libertyDebug) {
                     serverTask.setOperation("debug");
+                    serverTask.setEnvironmentVariables(getDebugEnvironmentVariables(libertyDebugPort));
                 } else {
                     serverTask.setOperation("run");
                 }
@@ -501,7 +502,6 @@ public class DevMojo extends StartDebugMojoSupport {
 
         util = new DevMojoUtil(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs);
         util.addShutdownHook(executor);
-        util.enableServerDebug(libertyDebugPort);
         util.startServer(serverStartTimeout, verifyTimeout);
 
         // collect artifacts canonical paths in order to build classpath
