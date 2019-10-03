@@ -189,7 +189,7 @@ public class DevMojo extends StartDebugMojoSupport {
         public DevMojoUtil(File serverDirectory, File sourceDirectory, File testSourceDirectory, File configDirectory,
                 List<File> resourceDirs) throws IOException {
             super(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs, hotTests,
-                    skipTests, skipUTs, skipITs, project.getArtifactId(), verifyTimeout, appUpdateTimeout,
+                    skipTests, skipUTs, skipITs, project.getArtifactId(), serverStartTimeout, verifyTimeout, appUpdateTimeout,
                     ((long) (compileWait * 1000L)), libertyDebug);
 
             ServerFeature servUtil = getServerFeatureUtil();
@@ -238,14 +238,21 @@ public class DevMojo extends StartDebugMojoSupport {
 
         @Override
         public void stopServer() {
+
             try {
                 ServerTask serverTask = initializeJava();
                 serverTask.setOperation("stop");
                 serverTask.execute();
             } catch (Exception e) {
                 // ignore
-                log.debug("Error stopping server", e);
+                log.error("Error stopping server", e);
             }
+
+            // try {
+            //     //runLibertyMojoStop();
+            // } catch (MojoExecutionException e) {
+            //     log.error("Error stopping server", e);
+            // }
         }
 
         @Override
@@ -694,7 +701,7 @@ public class DevMojo extends StartDebugMojoSupport {
 
         util = new DevMojoUtil(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs);
         util.addShutdownHook(executor);
-        util.startServer(serverStartTimeout);
+        util.startServer();
 
         // collect artifacts canonical paths in order to build classpath
         List<String> artifactPaths = util.getArtifacts();
@@ -985,6 +992,11 @@ public class DevMojo extends StartDebugMojoSupport {
             plugin = plugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID, "LATEST");
         }
         return plugin;
+    }
+
+    private void runLibertyMojoStop() throws MojoExecutionException {
+        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "stop", log);
+        runLibertyMojo("stop", config);
     }
 
     private void runLibertyMojoCreate() throws MojoExecutionException {
