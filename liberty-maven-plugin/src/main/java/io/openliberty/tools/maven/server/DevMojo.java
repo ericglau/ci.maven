@@ -247,12 +247,6 @@ public class DevMojo extends StartDebugMojoSupport {
                 // ignore
                 log.error("Error stopping server", e);
             }
-
-            // try {
-            //     //runLibertyMojoStop();
-            // } catch (MojoExecutionException e) {
-            //     log.error("Error stopping server", e);
-            // }
         }
 
         @Override
@@ -992,11 +986,6 @@ public class DevMojo extends StartDebugMojoSupport {
             plugin = plugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID, "LATEST");
         }
         return plugin;
-    }
-
-    private void runLibertyMojoStop() throws MojoExecutionException {
-        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "stop", log);
-        runLibertyMojo("stop", config);
     }
 
     private void runLibertyMojoCreate() throws MojoExecutionException {

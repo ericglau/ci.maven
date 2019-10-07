@@ -164,12 +164,6 @@ public class ExecuteMojoUtil {
         INSTALL_FEATURE_PARAMS.addAll(LIBERTY_COMMON_PARAMS);
     }
 
-    private static final ArrayList<String> STOP_PARAMS;
-    static {
-        STOP_PARAMS = new ArrayList<>(Arrays.asList("embedded"));
-        STOP_PARAMS.addAll(LIBERTY_COMMON_PARAMS);
-    }
-
     private static final Map<String, String> LIBERTY_ALIAS_MAP;
     static {
         Map<String, String>tempMap = new HashMap<String, String>();
@@ -243,10 +237,6 @@ public class ExecuteMojoUtil {
         case "liberty-maven-plugin:install-feature":
             config = convertLibertyAlias(config);
             goalConfig = stripConfigElements(config, INSTALL_FEATURE_PARAMS);
-            break;
-        case "liberty-maven-plugin:stop":
-            config = convertLibertyAlias(config);
-            goalConfig = stripConfigElements(config, STOP_PARAMS);
             break;
         case "maven-compiler-plugin:compile":
             goalConfig = stripConfigElements(config, COMPILE_PARAMS);
