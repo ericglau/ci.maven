@@ -237,6 +237,38 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         @Override
+        public void libertyCreate() throws PluginExecutionException {
+            try {
+                if (isUsingBoost()) {
+                    log.info("Running boost:package");
+                    runBoostMojo("package");
+                } else {
+                    runLibertyMojoCreate();
+                }
+            } catch (MojoExecutionException | ProjectBuildingException e) {                
+                throw new PluginExecutionException(e);
+            }
+        }
+    
+        @Override
+        public void libertyInstallFeature() throws PluginExecutionException {
+            try {
+                runLibertyMojoInstallFeature(null);
+            } catch (MojoExecutionException e) {                
+                throw new PluginExecutionException(e);
+            }
+        }
+    
+        @Override
+        public void libertyDeploy() throws PluginExecutionException {
+            try {
+                runLibertyMojoDeploy();
+            } catch (MojoExecutionException e) {                
+                throw new PluginExecutionException(e);
+            }
+        }
+
+        @Override
         public void stopServer() {
 
             try {
@@ -395,7 +427,8 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         @Override
-        public boolean recompileBuildFile(File buildFile, List<String> artifactPaths, ThreadPoolExecutor executor) {
+        public boolean recompileBuildFile(File buildFile, List<String> artifactPaths, ThreadPoolExecutor executor)
+                throws PluginExecutionException {
             // monitoring project pom.xml file changes in dev mode:
             // - liberty.* properites in project properties section
             // - changes in liberty plugin configuration in the build plugin section
@@ -503,21 +536,17 @@ public class DevMojo extends StartDebugMojoSupport {
                 }
 
                 if (restartServer) {
-                    // TODO: restart server automatically
                     // - stop Server
                     // - create server or runBoostMojo
                     // - install feature
                     // - deploy app
                     // - start server
-                    log.error("Changes for Liberty server bootstrap properties, environment variables or JVM options "
-                            + "in the pom.xml have been detected. Restart liberty:dev mode for the changes to take effect.");
-                    project = backupProject;
-                    session.setCurrentProject(backupProject);
-                    return false;
+                    util.restartServer();
+                    return true;
                 } else {
                     if (isUsingBoost() && (createServer || runBoostPackage)) {
                         log.info("Running boost:package");
-                        runBoostMojo("package", false);
+                        runBoostMojo("package");
                     } else if (createServer) {
                         runLibertyMojoCreate();
                     } else if (redeployApp) {
@@ -670,7 +699,7 @@ public class DevMojo extends StartDebugMojoSupport {
 
         if (isUsingBoost()) {
             log.info("Running boost:package");
-            runBoostMojo("package", false);
+            runBoostMojo("package");
         } else {
             runLibertyMojoCreate();
             runLibertyMojoInstallFeature(null);
@@ -905,20 +934,11 @@ public class DevMojo extends StartDebugMojoSupport {
         }
     }
 
-    private void runBoostMojo(String goal, boolean rebuildProject)
+    private void runBoostMojo(String goal)
             throws MojoExecutionException, ProjectBuildingException {
 
         MavenProject boostProject = this.project;
         MavenSession boostSession = this.session;
-
-        if (rebuildProject) {
-            // Reload pom
-            File pomFile = new File(project.getFile().getAbsolutePath());
-            ProjectBuildingResult build = mavenProjectBuilder.build(pomFile,
-                    session.getProjectBuildingRequest().setResolveDependencies(true));
-            boostProject = build.getProject();
-            boostSession.setCurrentProject(boostProject);
-        }
 
         log.debug("plugin version: " + boostPlugin.getVersion());
         executeMojo(boostPlugin, goal(goal), configuration(),
