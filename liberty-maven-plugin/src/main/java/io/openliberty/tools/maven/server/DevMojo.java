@@ -296,10 +296,6 @@ public class DevMojo extends StartDebugMojoSupport {
                     // set environment variables for server start task
                     serverTask.setOperation("debug");
                     serverTask.setEnvironmentVariables(getDebugEnvironmentVariables());
-
-                    // set the same variables in server.env after it was written to the target
-                    // location by copyConfigFiles() above
-                    enableServerDebug();
                 } else {
                     serverTask.setOperation("run");
                 }
