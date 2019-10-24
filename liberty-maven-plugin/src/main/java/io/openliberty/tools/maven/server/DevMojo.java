@@ -15,19 +15,16 @@
  */
 package io.openliberty.tools.maven.server;
 
-import static org.twdata.maven.mojoexecutor.MojoExecutor.artifactId;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.configuration;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.element;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.executeMojo;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.executionEnvironment;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.goal;
-import static org.twdata.maven.mojoexecutor.MojoExecutor.groupId;
 import static org.twdata.maven.mojoexecutor.MojoExecutor.name;
-import static org.twdata.maven.mojoexecutor.MojoExecutor.plugin;
-import static org.twdata.maven.mojoexecutor.MojoExecutor.version;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -43,7 +40,6 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.Resource;
-import org.apache.maven.plugin.BuildPluginManager;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Component;
@@ -75,9 +71,6 @@ import io.openliberty.tools.maven.utils.ExecuteMojoUtil;
  */
 @Mojo(name = "dev", requiresDependencyCollection = ResolutionScope.TEST, requiresDependencyResolution = ResolutionScope.TEST)
 public class DevMojo extends StartDebugMojoSupport {
-
-    private static final String LIBERTY_MAVEN_PLUGIN_GROUP_ID = "io.openliberty.tools";
-    private static final String LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID = "liberty-maven-plugin";
 
     private static final String TEST_RUN_ID_PROPERTY_NAME = "liberty.dev.test.run.id";
     private static final String LIBERTY_HOSTNAME = "liberty.hostname";
@@ -119,9 +112,6 @@ public class DevMojo extends StartDebugMojoSupport {
     private ServerTask serverTask = null;
     
     private Plugin boostPlugin = null;
-
-    @Component
-    private BuildPluginManager pluginManager;
 
     @Component
     protected ProjectBuilder mavenProjectBuilder;
@@ -276,8 +266,7 @@ public class DevMojo extends StartDebugMojoSupport {
                 serverTask.setOperation("stop");
                 serverTask.execute();
             } catch (Exception e) {
-                // ignore
-                log.error("Error stopping server", e);
+                log.warn(MessageFormat.format(messages.getString("warn.server.stopped"), serverName));
             }
         }
 
@@ -447,11 +436,11 @@ public class DevMojo extends StartDebugMojoSupport {
             }
 
             // set the updated project in current session;
-            Plugin backupLibertyPlugin = getPlugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID);
+            Plugin backupLibertyPlugin = getLibertyPlugin();
             MavenProject backupProject = project;
             project = build.getProject();
             session.setCurrentProject(project);
-            Plugin libertyPlugin = getPlugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID);
+            Plugin libertyPlugin = getLibertyPlugin();
 
             try {
                 // Monitoring liberty properties in the pom.xml
@@ -639,6 +628,15 @@ public class DevMojo extends StartDebugMojoSupport {
                 } else {
                     throw new PluginExecutionException("Failed to run integration tests", e);
                 }
+            }
+        }
+
+        @Override
+        public void redeployApp() throws PluginExecutionException {
+            try {
+                runLibertyMojoDeploy();
+            } catch (MojoExecutionException e) {
+                throw new PluginExecutionException("liberty:deploy goal failed:" + e.getMessage());
             }
         }
     }
@@ -862,21 +860,6 @@ public class DevMojo extends StartDebugMojoSupport {
     }
 
     /**
-     * Given the groupId and artifactId get the corresponding plugin
-     * 
-     * @param groupId
-     * @param artifactId
-     * @return Plugin
-     */
-    private Plugin getPlugin(String groupId, String artifactId) {
-        Plugin plugin = project.getPlugin(groupId + ":" + artifactId);
-        if (plugin == null) {
-            plugin = plugin(groupId(groupId), artifactId(artifactId), version("RELEASE"));
-        }
-        return plugin;
-    }
-
-    /**
      * Force change a property so that the checksum calculated by
      * AbstractSurefireMojo is different every time.
      *
@@ -994,52 +977,5 @@ public class DevMojo extends StartDebugMojoSupport {
             log.info(msg);
         }
 
-    }
-
-    private Plugin getLibertyPlugin() {
-        Plugin plugin = project.getPlugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID + ":" + LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID);
-        if (plugin == null) {
-            plugin = plugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID, "LATEST");
-        }
-        return plugin;
-    }
-
-    private void runLibertyMojoCreate() throws MojoExecutionException {
-        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "create", log);
-        runLibertyMojo("create", config);
-    }
-
-    private void runLibertyMojoDeploy() throws MojoExecutionException {
-        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "deploy", log);
-        Xpp3Dom looseApp = config.getChild("looseApplication");
-        if (looseApp != null && "false".equals(looseApp.getValue())) {
-            log.warn("Overriding liberty plugin pararmeter, \"looseApplication\" to \"true\" and deploying application in looseApplication format");
-            looseApp.setValue("true");
-        }
-        runLibertyMojo("deploy", config);
-    }
-
-    private void runLibertyMojoInstallFeature(Element features) throws MojoExecutionException {
-        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "install-feature", log);;
-        if (features != null) {
-            config = Xpp3Dom.mergeXpp3Dom(configuration(features), config);
-        }
-        runLibertyMojo("install-feature", config);
-    }
-
-    private void runLibertyMojo(String goal, Xpp3Dom config) throws MojoExecutionException {
-        log.info("Running liberty:" + goal);
-        log.debug("configuration:\n" + config);
-        executeMojo(getLibertyPlugin(), goal(goal), config,
-                executionEnvironment(project, session, pluginManager));
-    }
-
-    private void runMojo(String groupId, String artifactId, String goal) throws MojoExecutionException {
-        Plugin plugin = getPlugin(groupId, artifactId);
-        Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(plugin, goal, log);
-        log.info("Running " + artifactId + ":" + goal);
-        log.debug("configuration:\n" + config);
-        executeMojo(plugin, goal(goal), config,
-                executionEnvironment(project, session, pluginManager));
     }
 }
