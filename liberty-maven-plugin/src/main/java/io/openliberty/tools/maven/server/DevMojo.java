@@ -101,6 +101,9 @@ public class DevMojo extends StartDebugMojoSupport {
     @Parameter(property = "debugPort", defaultValue = "7777")
     private int libertyDebugPort;
 
+    @Parameter(property = "skipServer", defaultValue = "false")
+    private boolean skipServer;
+
     /**
      * Time in seconds to wait before processing Java changes and deletions.
      */
@@ -659,7 +662,7 @@ public class DevMojo extends StartDebugMojoSupport {
         // Check if this is a Boost application
         boostPlugin = project.getPlugin("org.microshed.boost:boost-maven-plugin");
 
-        if (serverDirectory.exists()) {
+        if (serverDirectory.exists() && !skipServer) { 
             // passing liberty installDirectory, outputDirectory and serverName to determine server status
             if (ServerStatusUtil.isServerRunning(installDirectory, super.outputDirectory, serverName)) {
                 throw new MojoExecutionException("The server " + serverName
@@ -691,7 +694,9 @@ public class DevMojo extends StartDebugMojoSupport {
         log.debug("Test Source directory: " + testSourceDirectory);
         log.debug("Test Output directory: " + testOutputDirectory);
 
-        if (isUsingBoost()) {
+        if (skipServer) {
+            log.info("NOT running server create, install-feature, or deploy");
+        } else if (isUsingBoost()) {
             log.info("Running boost:package");
             runBoostMojo("package");
         } else {
@@ -718,7 +723,11 @@ public class DevMojo extends StartDebugMojoSupport {
 
         util = new DevMojoUtil(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs);
         util.addShutdownHook(executor);
-        util.startServer();
+        if (skipServer) {
+            log.info("NOT starting server");
+        } else {
+            util.startServer();            
+        }
 
         // collect artifacts canonical paths in order to build classpath
         List<String> artifactPaths = util.getArtifacts();
@@ -735,16 +744,30 @@ public class DevMojo extends StartDebugMojoSupport {
         // pom.xml
         File pom = project.getFile();
 
+        File serverOutputDirectory = outputDirectory;
+
+        if (skipServer) {
+            String deployArtifact = getDeployArtifactPath();
+            serverOutputDirectory = new File(serverDirectory, "apps/expanded/" + deployArtifact + "/WEB-INF/classes/");
+            log.debug("Overriding output directory: " + serverOutputDirectory);
+        }
+
         // Note that serverXmlFile can be null. DevUtil will automatically watch
         // all files in the configDirectory,
         // which is where the server.xml is located if a specific serverXmlFile
         // configuration parameter is not specified.
         try {
-            util.watchFiles(pom, outputDirectory, testOutputDirectory, executor, artifactPaths, serverXmlFile);
+            util.watchFiles(pom, serverOutputDirectory, testOutputDirectory, executor, artifactPaths, serverXmlFile);
         } catch (PluginScenarioException e) { // this exception is caught when the server has been stopped by another process
             log.info(e.getMessage()); 
             return; // enter shutdown hook 
         }
+    }
+
+    private String getDeployArtifactPath() {
+        String deployArtifact = getProject().getBuild().getFinalName() + '.' + getProject().getPackaging();
+        log.debug("Assuming artifact name: " + deployArtifact);
+        return deployArtifact;
     }
 
     private void addArtifacts(org.eclipse.aether.graph.DependencyNode root, List<File> artifacts) {
