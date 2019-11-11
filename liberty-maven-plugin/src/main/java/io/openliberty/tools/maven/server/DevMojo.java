@@ -717,6 +717,7 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         util = new DevMojoUtil(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs);
+        util.setUseMavenOrGradleCompile(true);
         util.addShutdownHook(executor);
         util.startServer();
 
