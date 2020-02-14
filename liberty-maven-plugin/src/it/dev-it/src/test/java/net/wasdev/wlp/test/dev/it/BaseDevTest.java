@@ -53,6 +53,7 @@ public class BaseDevTest {
    static File pom;
    static BufferedWriter writer;
    static Process process;
+   static File messagesLogFile;
 
    protected static void setUpBeforeClass(String devModeParams) throws IOException, InterruptedException, FileNotFoundException {
    	setUpBeforeClass(devModeParams, "../resources/basic-dev-project");
@@ -71,6 +72,9 @@ public class BaseDevTest {
 
       tempProj = Files.createTempDirectory("temp").toFile();
       assertTrue(tempProj.exists());
+
+      targetDir = new File(tempProj, "target");
+      messagesLogFile = new File(targetDir, "liberty/wlp/usr/servers/defaultServer/logs/messages.log");
 
       assertTrue(basicDevProj.exists());
 
@@ -114,13 +118,12 @@ public class BaseDevTest {
 
       // check that the server has started
       Thread.sleep(5000);
-      assertFalse(checkLogMessage(120000, "CWWKF0011I"));
+      assertFalse(checkServerMessage(120000, "CWWKF0011I"));
       if (isDevMode) {
-          assertFalse(checkLogMessage(60000, "Enter key to run tests on demand"));
+          assertFalse(checkOutputMessage(60000, "Enter key to run tests on demand"));
       }
 
       // verify that the target directory was created
-      targetDir = new File(tempProj, "target");
       assertTrue(targetDir.exists());
    }
 
@@ -153,7 +156,7 @@ public class BaseDevTest {
          writer.close();
 
          // test that dev mode has stopped running
-         assertFalse(checkLogMessage(100000, "CWWKE0036I"));
+         assertFalse(checkServerMessage(100000, "CWWKE0036I"));
       }
    }
 
@@ -222,7 +225,17 @@ public class BaseDevTest {
       Files.write(path, content.getBytes(charset));
    }
 
-   protected static boolean checkLogMessage(int timeout, String message)
+   protected static boolean checkOutputMessage(int timeout, String message)
+         throws InterruptedException, FileNotFoundException {
+      return checkLogMessage(timeout, message, logFile);
+   }
+
+   protected static boolean checkServerMessage(int timeout, String message)
+         throws InterruptedException, FileNotFoundException {
+      return checkLogMessage(timeout, message, messagesLogFile);
+   }
+
+   protected static boolean checkLogMessage(int timeout, String message, File file)
          throws InterruptedException, FileNotFoundException {
       int waited = 0;
       boolean startFlag = false;
@@ -230,9 +243,13 @@ public class BaseDevTest {
          int sleep = 10;
          Thread.sleep(sleep);
          waited += sleep;
-         if (readFile(message, logFile)) {
-            startFlag = true;
-            Thread.sleep(1000);
+         try {
+            if (readFile(message, file)) {
+                startFlag = true;
+                Thread.sleep(1000);
+            }
+         } catch (FileNotFoundException e) {
+               // keep trying
          }
       }
       return (waited > timeout);

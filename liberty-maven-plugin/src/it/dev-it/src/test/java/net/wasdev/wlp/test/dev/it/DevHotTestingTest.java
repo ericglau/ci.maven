@@ -35,12 +35,12 @@ public class DevHotTestingTest extends BaseDevTest {
    @Test
    public void autoTestsInvocationTest() throws Exception {
 //      Thread.sleep(10000);
-      assertFalse(checkLogMessage(20000,  "Tests will run automatically"));
+      assertFalse(checkOutputMessage(20000,  "Tests will run automatically"));
    
       testModifyJavaFile();
 
-      assertFalse(checkLogMessage(2000,  "Unit tests finished."));
-      assertFalse(checkLogMessage(2000,  "Integration tests finished."));   
+      assertFalse(checkOutputMessage(2000,  "Unit tests finished."));
+      assertFalse(checkOutputMessage(2000,  "Integration tests finished."));   
    }
 
 }

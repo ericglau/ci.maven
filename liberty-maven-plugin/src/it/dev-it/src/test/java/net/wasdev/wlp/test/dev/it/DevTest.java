@@ -48,15 +48,15 @@ public class DevTest extends BaseDevTest {
    @Test
    public void configChangeTest() throws Exception {
       // configuration file change
-      File srcServerXML = new File(tempProj, "/src/main/liberty/config/server.xml");
-      File targetServerXML = new File(targetDir, "/liberty/wlp/usr/servers/defaultServer/server.xml");
+      File srcServerXML = new File(tempProj, "src/main/liberty/config/server.xml");
+      File targetServerXML = new File(targetDir, "liberty/wlp/usr/servers/defaultServer/server.xml");
       assertTrue(srcServerXML.exists());
       assertTrue(targetServerXML.exists());
 
       replaceString("</feature>", "</feature>\n" + "    <feature>mpHealth-1.0</feature>", srcServerXML);
 
       // check for server configuration was successfully updated message
-      assertFalse(checkLogMessage(60000, "CWWKG0017I"));
+      assertFalse(checkServerMessage(60000, "CWWKG0017I"));
       Thread.sleep(2000);
       Scanner scanner = new Scanner(targetServerXML);
       boolean foundUpdate = false;
@@ -86,7 +86,7 @@ public class DevTest extends BaseDevTest {
       Thread.sleep(2000); // wait for compilation
       File targetPropertiesFile = new File(targetDir, "classes/microprofile-config.properties");
       assertTrue(targetPropertiesFile.exists());
-      assertFalse(checkLogMessage(100000, "CWWKZ0003I"));
+      assertFalse(checkServerMessage(100000, "CWWKZ0003I"));
 
       // delete a resource file
       assertTrue(propertiesFile.delete());
@@ -109,7 +109,7 @@ public class DevTest extends BaseDevTest {
       assertTrue(unitTestSrcFile.exists());
 
       Thread.sleep(6000); // wait for compilation
-      File unitTestTargetFile = new File(targetDir, "/test-classes/UnitTest.class");
+      File unitTestTargetFile = new File(targetDir, "test-classes/UnitTest.class");
       assertTrue(unitTestTargetFile.exists());
       long lastModified = unitTestTargetFile.lastModified();
 
@@ -133,13 +133,13 @@ public class DevTest extends BaseDevTest {
 
    @Test
    public void manualTestsInvocationTest() throws Exception {
-      assertFalse(checkLogMessage(2000,  "Press the Enter key to run tests on demand."));
+      assertFalse(checkOutputMessage(2000,  "Press the Enter key to run tests on demand."));
 
       writer.write("\n");
       writer.flush();
 
-      assertFalse(checkLogMessage(10000,  "Unit tests finished."));
-      assertFalse(checkLogMessage(2000,  "Integration tests finished."));
+      assertFalse(checkOutputMessage(10000,  "Unit tests finished."));
+      assertFalse(checkOutputMessage(2000,  "Integration tests finished."));
    }
    
     @Test
@@ -151,23 +151,23 @@ public class DevTest extends BaseDevTest {
         String invalidDep = "<dependency>\n" + "        <groupId>io.openliberty.features</groupId>\n"
                 + "        <artifactId>abcd</artifactId>\n" + "        <version>1.0</version>\n" + "    </dependency>";
         replaceString(invalidDepComment, invalidDep, pom);
-        assertFalse(checkLogMessage(10000, "Unable to resolve artifact: io.openliberty.features:abcd:1.0"));
+        assertFalse(checkOutputMessage(10000, "Unable to resolve artifact: io.openliberty.features:abcd:1.0"));
     }
    
    @Test
    public void resolveDependencyTest() throws Exception {      
-      assertFalse(checkLogMessage(10000,  "Press the Enter key to run tests on demand."));
+      assertFalse(checkOutputMessage(10000,  "Press the Enter key to run tests on demand."));
 
       // create the HealthCheck class, expect a compilation error
       File systemHealthRes = new File("../resources/SystemHealth.java");
       assertTrue(systemHealthRes.exists());
-      File systemHealthSrc = new File(tempProj, "/src/main/java/com/demo/SystemHealth.java");
-      File systemHealthTarget = new File(targetDir, "/classes/com/demo/SystemHealth.class");
+      File systemHealthSrc = new File(tempProj, "src/main/java/com/demo/SystemHealth.java");
+      File systemHealthTarget = new File(targetDir, "classes/com/demo/SystemHealth.class");
 
       FileUtils.copyFile(systemHealthRes, systemHealthSrc);
       assertTrue(systemHealthSrc.exists());
       
-      assertFalse(checkLogMessage(200000, "Source compilation had errors"));
+      assertFalse(checkOutputMessage(200000, "Source compilation had errors"));
       assertFalse(systemHealthTarget.exists());
       
       // add mpHealth dependency to pom.xml
@@ -185,7 +185,7 @@ public class DevTest extends BaseDevTest {
             "    </dependency>";
       replaceString(mpHealthComment, mpHealth, pom);
       
-      assertFalse(checkLogMessage(100000,"The following features have been installed"));
+      assertFalse(checkOutputMessage(100000,"The following features have been installed"));
       
       String str = "// testing";
       BufferedWriter javaWriter = new BufferedWriter(new FileWriter(systemHealthSrc, true));
@@ -195,7 +195,7 @@ public class DevTest extends BaseDevTest {
       javaWriter.close();
 
       Thread.sleep(1000); // wait for compilation
-      assertFalse(checkLogMessage(100000, "Source compilation was successful."));
+      assertFalse(checkOutputMessage(100000, "Source compilation was successful."));
       Thread.sleep(15000); // wait for compilation
       assertTrue(systemHealthTarget.exists());
    }

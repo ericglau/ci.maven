@@ -37,15 +37,15 @@ public class MPStarterTest extends BaseDevTest {
 
    @Test
    public void manualTestsInvocationTest() throws Exception {
-      assertFalse(checkLogMessage(30000,  "Press the Enter key to run tests on demand."));
+      assertFalse(checkOutputMessage(30000,  "Press the Enter key to run tests on demand."));
 
       writer.write("\n");
       writer.flush();
 
-      assertFalse(checkLogMessage(10000,  "Unit tests finished."));
-      assertFalse(checkLogMessage(2000,  "Integration tests finished."));
+      assertFalse(checkOutputMessage(10000,  "Unit tests finished."));
+      assertFalse(checkOutputMessage(2000,  "Integration tests finished."));
 
-      assertTrue("Found CWWKM2179W message indicating incorrect app deployment", checkLogMessage(2000,  "CWWKM2179W"));
+      assertTrue("Found CWWKM2179W message indicating incorrect app deployment", checkServerMessage(2000,  "CWWKM2179W"));
    }
 
    @AfterClass
