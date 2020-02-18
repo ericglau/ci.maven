@@ -180,17 +180,12 @@ public class BaseDevTest {
       assertTrue(wasModified);
    }
 
-   private static boolean readFile(String str, File file) throws FileNotFoundException {
-      Scanner scanner = new Scanner(file);
-      try {
-         while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            if (line.contains(str)) {
-               return true;
-            }
+   private static boolean readFile(Scanner scanner, String str, File file) throws FileNotFoundException {
+      while (scanner.hasNextLine()) {
+         String line = scanner.nextLine();
+         if (line.contains(str)) {
+            return true;
          }
-      } finally {
-         scanner.close();
       }
       return false;
    }
@@ -239,19 +234,25 @@ public class BaseDevTest {
          throws InterruptedException, FileNotFoundException {
       int waited = 0;
       boolean startFlag = false;
-      while (!startFlag && waited <= timeout) {
-         int sleep = 10;
-         Thread.sleep(sleep);
-         waited += sleep;
-         try {
-            if (readFile(message, file)) {
-                startFlag = true;
-                Thread.sleep(1000);
-            }
-         } catch (FileNotFoundException e) {
+      Scanner scanner = new Scanner(file);
+      try {
+         while (!startFlag && waited <= timeout) {
+            int sleep = 100;
+            Thread.sleep(sleep);
+            waited += sleep;
+            try {
+               if (readFile(scanner, message, file)) {
+                     startFlag = true;
+                     Thread.sleep(1000);
+               }
+            } catch (FileNotFoundException e) {
                // keep trying
+            }
          }
+      } finally {
+         scanner.close();
       }
       return (waited > timeout);
-   }
+      }
+
 }
