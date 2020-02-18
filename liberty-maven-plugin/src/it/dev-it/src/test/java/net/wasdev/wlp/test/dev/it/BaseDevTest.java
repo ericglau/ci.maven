@@ -234,25 +234,30 @@ public class BaseDevTest {
          throws InterruptedException, FileNotFoundException {
       int waited = 0;
       boolean startFlag = false;
-      Scanner scanner = new Scanner(file);
+      Scanner scanner = null;
       try {
          while (!startFlag && waited <= timeout) {
             int sleep = 100;
             Thread.sleep(sleep);
             waited += sleep;
             try {
+               if (scanner == null) {
+                     scanner = new Scanner(file);
+               }
                if (readFile(scanner, message, file)) {
                      startFlag = true;
                      Thread.sleep(1000);
                }
             } catch (FileNotFoundException e) {
-               // keep trying
+               // keep trying to read file with Scanner
             }
          }
       } finally {
-         scanner.close();
+         if (scanner != null) {
+            scanner.close();
+         }
       }
       return (waited > timeout);
-      }
+   }
 
 }
