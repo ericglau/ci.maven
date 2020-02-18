@@ -32,7 +32,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.NoSuchFileException;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -221,7 +220,7 @@ public class BaseDevTest {
    }
 
    protected static boolean checkLogMessage(int timeout, String message, File file)
-         throws InterruptedException, FileNotFoundException {
+         throws InterruptedException {
       int waited = 0;
       boolean startFlag = false;
       while (!startFlag && waited <= timeout) {
@@ -234,7 +233,7 @@ public class BaseDevTest {
                startFlag = true;
                Thread.sleep(1000);
             }
-         } catch (NoSuchFileException e) {
+         } catch (IOException e) {
             // keep trying
          }
       }
