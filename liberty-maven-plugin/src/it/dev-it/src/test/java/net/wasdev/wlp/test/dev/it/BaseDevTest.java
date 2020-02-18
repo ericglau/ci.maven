@@ -32,8 +32,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.NoSuchFileException;
 import java.util.Properties;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -180,16 +180,6 @@ public class BaseDevTest {
       assertTrue(wasModified);
    }
 
-   private static boolean readFile(Scanner scanner, String str, File file) throws FileNotFoundException {
-      while (scanner.hasNextLine()) {
-         String line = scanner.nextLine();
-         if (line.contains(str)) {
-            return true;
-         }
-      }
-      return false;
-   }
-
    private static ProcessBuilder buildProcess(String processCommand) {
       ProcessBuilder builder = new ProcessBuilder();
       builder.directory(tempProj);
@@ -234,27 +224,18 @@ public class BaseDevTest {
          throws InterruptedException, FileNotFoundException {
       int waited = 0;
       boolean startFlag = false;
-      Scanner scanner = null;
-      try {
-         while (!startFlag && waited <= timeout) {
-            int sleep = 100;
-            Thread.sleep(sleep);
-            waited += sleep;
-            try {
-               if (scanner == null) {
-                     scanner = new Scanner(file);
-               }
-               if (readFile(scanner, message, file)) {
-                     startFlag = true;
-                     Thread.sleep(1000);
-               }
-            } catch (FileNotFoundException e) {
-               // keep trying to read file with Scanner
+      while (!startFlag && waited <= timeout) {
+         int sleep = 100;
+         Thread.sleep(sleep);
+         waited += sleep;
+         try {
+            String content = new String(Files.readAllBytes(file.toPath()));
+            if (content.contains(message)) {
+               startFlag = true;
+               Thread.sleep(1000);
             }
-         }
-      } finally {
-         if (scanner != null) {
-            scanner.close();
+         } catch (NoSuchFileException e) {
+            // keep trying
          }
       }
       return (waited > timeout);
