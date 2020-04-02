@@ -198,7 +198,7 @@ public class StartDebugMojoSupport extends BasicSupport {
     }
 
     protected void runLibertyMojoDeploy() throws MojoExecutionException {
-        runLibertyMojoDeploy(true);
+        runLibertyMojoDeploy(false);
     }
     
     protected void runLibertyMojoDeploy(boolean forceLooseApp) throws MojoExecutionException {

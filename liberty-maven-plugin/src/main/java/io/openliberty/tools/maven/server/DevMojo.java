@@ -186,7 +186,7 @@ public class DevMojo extends StartDebugMojoSupport {
                 List<File> resourceDirs) throws IOException {
             super(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, resourceDirs, hotTests,
                     skipTests, skipUTs, skipITs, project.getArtifactId(), serverStartTimeout, verifyTimeout, verifyTimeout,
-                    ((long) (compileWait * 1000L)), libertyDebug, false, false, polling, pollingInterval);
+                    ((long) (compileWait * 1000L)), libertyDebug, false, false, polling, pollingInterval, true /* TODO parameterize this */);
 
             ServerFeature servUtil = getServerFeatureUtil();
             this.existingFeatures = servUtil.getServerFeatures(serverDirectory);
@@ -650,6 +650,28 @@ public class DevMojo extends StartDebugMojoSupport {
                 throw new PluginExecutionException("liberty:deploy goal failed:" + e.getMessage());
             }
         }
+
+        @Override
+        public void rebuildProject() throws PluginExecutionException {
+            String packaging = project.getPackaging();
+            try {
+                runRebuildProject(packaging);
+                redeployApp();
+            } catch (MojoExecutionException e) {
+                throw new PluginExecutionException("Unable to rebuild project: " + e.getMessage());
+            }
+        }
+
+    }
+
+    private void runRebuildProject(String packaging) throws MojoExecutionException {
+        if (packaging.equals("war") || packaging.equals("liberty-assembly")) {
+            runMojo("org.apache.maven.plugins", "maven-war-plugin", "war");
+        } else if (packaging.equals("ear")) {
+            runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear");
+        } else if (packaging.equals("jar")) {
+            runMojo("org.apache.maven.plugins", "maven-jar-plugin", "jar");
+        }
     }
 
     private boolean isUsingBoost() {
@@ -709,6 +731,7 @@ public class DevMojo extends StartDebugMojoSupport {
         } else {
             runLibertyMojoCreate();
             runLibertyMojoInstallFeature(null);
+            runRebuildProject(project.getPackaging());
             runLibertyMojoDeploy();
         }
         // resource directories
