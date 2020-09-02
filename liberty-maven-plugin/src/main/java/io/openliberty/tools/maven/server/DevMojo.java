@@ -690,8 +690,11 @@ public class DevMojo extends StartDebugMojoSupport {
 
         @Override
         public boolean isLooseApplication() {
-            // dev mode forces deploy with looseApplication=true, but it only takes effect if packaging is one of the supported loose app types
-            return DeployMojoSupport.isSupportedLooseAppType(project.getPackaging());
+            Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(getLibertyPlugin(), "deploy", log);
+            Xpp3Dom looseApp = config.getChild("looseApplication");
+            boolean isLooseApp = (looseApp == null) || "true".equals(looseApp.getValue());
+
+            return isLooseApp && DeployMojoSupport.isSupportedLooseAppType(project.getPackaging());
         }
 
     }
