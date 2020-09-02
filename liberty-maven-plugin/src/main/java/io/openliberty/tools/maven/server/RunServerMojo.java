@@ -54,7 +54,7 @@ public class RunServerMojo extends PluginConfigSupport {
         
         runLibertyMojoCreate();
         runLibertyMojoInstallFeature(null);
-        runLibertyMojoDeploy(false);
+        runLibertyMojoDeploy();
 
         ServerTask serverTask = initializeJava();
         copyConfigFiles();
