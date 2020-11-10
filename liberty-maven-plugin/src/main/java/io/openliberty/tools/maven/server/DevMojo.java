@@ -224,8 +224,8 @@ public class DevMojo extends StartDebugMojoSupport {
         Map<String, File> libertyDirPropertyFiles = new HashMap<String, File> ();
 
         public DevMojoUtil(File installDir, File userDir, File serverDirectory, File sourceDirectory, File testSourceDirectory, File configDirectory, File projectDirectory,
-                List<File> resourceDirs, JavaCompilerOptions compilerOptions) throws IOException {
-            super(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, projectDirectory, resourceDirs, hotTests,
+                List<File> resourceDirs, List<File> testResourceDirs, JavaCompilerOptions compilerOptions) throws IOException {
+            super(serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, projectDirectory, resourceDirs, testResourceDirs, hotTests,
                     skipTests, skipUTs, skipITs, project.getArtifactId(), serverStartTimeout, verifyTimeout, verifyTimeout,
                     ((long) (compileWait * 1000L)), libertyDebug, false, false, pollingTest, container, dockerfile, dockerRunOpts, 
                     dockerBuildTimeout, skipDefaultPorts, compilerOptions);
@@ -649,6 +649,19 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         @Override
+        public void processResources(boolean test) {
+            try {
+                if (test) {
+                    runMojo("org.apache.maven.plugins", "maven-resources-plugin", "testResources");
+                } else {
+                    runMojo("org.apache.maven.plugins", "maven-resources-plugin", "resources");
+                }
+            } catch (MojoExecutionException e) {
+                log.error("Unable to process resources", e);
+            }
+        }
+
+        @Override
         public boolean compile(File dir) {
             try {
                 if (dir.equals(sourceDirectory)) {
@@ -777,26 +790,12 @@ public class DevMojo extends StartDebugMojoSupport {
             runLibertyMojoInstallFeature(null);
             runLibertyMojoDeploy();
         }
-        // resource directories
-        List<File> resourceDirs = new ArrayList<File>();
-        if (outputDirectory.exists()) {
-            List<Resource> resources = project.getResources();
-            for (Resource resource : resources) {
-                File resourceFile = new File(resource.getDirectory());
-                if (resourceFile.exists()) {
-                    resourceDirs.add(resourceFile);
-                }
-            }
-        }
-        if (resourceDirs.isEmpty()) {
-            File defaultResourceDir = new File(project.getBasedir() + "/src/main/resources");
-            log.debug("No resource directory detected, using default directory: " + defaultResourceDir);
-            resourceDirs.add(defaultResourceDir);
-        }
+        List<File> resourceDirs = getResourceDirs(false);
+        List<File> testResourceDirs = getResourceDirs(true);
 
         JavaCompilerOptions compilerOptions = getMavenCompilerOptions();
 
-        util = new DevMojoUtil(installDirectory, userDirectory, serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, project.getBasedir(), resourceDirs, compilerOptions);
+        util = new DevMojoUtil(installDirectory, userDirectory, serverDirectory, sourceDirectory, testSourceDirectory, configDirectory, project.getBasedir(), resourceDirs, testResourceDirs, compilerOptions);
         util.addShutdownHook(executor);
         util.startServer();
 
@@ -828,6 +827,31 @@ public class DevMojo extends StartDebugMojoSupport {
             }
             return; // enter shutdown hook 
         }
+    }
+
+    private List<File> getResourceDirs(boolean test) {
+        List<File> resourceDirs = new ArrayList<File>();
+        if (outputDirectory.exists()) {
+            List<Resource> resources = test ? project.getTestResources() : project.getResources();
+            for (Resource resource : resources) {
+                File resourceFile = new File(resource.getDirectory());
+                if (resourceFile.exists()) {
+                    resourceDirs.add(resourceFile);
+                }
+            }
+        }
+        if (resourceDirs.isEmpty()) {
+            File defaultResourceDir;
+            if (test) {
+                defaultResourceDir = new File(project.getBasedir() + "/src/test/resources");
+                log.debug("No test resource directory detected, using default directory: " + defaultResourceDir);
+            } else {
+                defaultResourceDir = new File(project.getBasedir() + "/src/main/resources");
+                log.debug("No resource directory detected, using default directory: " + defaultResourceDir);
+            }
+            resourceDirs.add(defaultResourceDir);
+        }
+        return resourceDirs;
     }
 
     private JavaCompilerOptions getMavenCompilerOptions() {
