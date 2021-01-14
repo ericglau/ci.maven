@@ -201,7 +201,7 @@ public class ExecuteMojoUtil {
      */
     public static Xpp3Dom getPluginGoalConfig(Plugin plugin, String goal, Log log) {
         Xpp3Dom config = null;
-        String execId = "default";
+        List<String> execIds = new ArrayList<>();
         int numExec = 0;
 
         List<PluginExecution> executions = plugin.getExecutions();
@@ -212,8 +212,11 @@ public class ExecuteMojoUtil {
                         // execution configuration is already merged with the common plugin
                         // configuration
                         config = (Xpp3Dom) e.getConfiguration();
-                        execId = e.getId();
+                    } else {
+                        // merge multiple execution configurations
+                        config = Xpp3Dom.mergeXpp3Dom((Xpp3Dom) e.getConfiguration(), config);
                     }
+                    execIds.add(e.getId());
                     numExec++;
                 }
             }
@@ -225,7 +228,7 @@ public class ExecuteMojoUtil {
         }
         if (numExec > 1) {
             log.warn(plugin.getArtifactId() + ":" + goal 
-                    + " goal has multiple execution configurations (default to \"" + execId + "\" execution)");
+                    + " goal has multiple execution configurations. Merging configurations: " + execIds);
         }
         
         if (config == null) {
