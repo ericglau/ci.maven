@@ -715,6 +715,11 @@ public class DevMojo extends StartDebugMojoSupport {
         }
 
         @Override
+        public void changeContainerMode(boolean container) {
+            setContainer(container);
+        }
+
+        @Override
         public boolean isLooseApplication() {
             // dev mode forces deploy with looseApplication=true, but it only takes effect if packaging is one of the supported loose app types
             return DeployMojoSupport.isSupportedLooseAppType(project.getPackaging());

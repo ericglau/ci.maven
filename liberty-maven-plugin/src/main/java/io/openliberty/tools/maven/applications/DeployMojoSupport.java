@@ -112,26 +112,27 @@ public class DeployMojoSupport extends PluginConfigSupport {
                     MessageFormat.format(messages.getString("error.project.not.compile"), proj.getId()));
         }
 
-        if (proj.getProperties().containsKey("container")) {
-                try {
-                    // Set up the config to replace the absolute path names with ${variable}/target type references
-                    config.setProjectRoot(proj.getBasedir().getCanonicalPath());
-                    config.setSourceOnDiskName("${"+DevUtil.DEVMODE_PROJECT_ROOT+"}");
-                    if (copyLibsDirectory == null) { // in container mode, copy dependencies from .m2 dir to the target dir to mount in container
-                        copyLibsDirectory = new File(proj.getBasedir(), PROJECT_ROOT_TARGET_LIBS);
-                    } else {
-                        // test the user defined copyLibsDirectory parameter for use in a container
-                        String projectPath = proj.getBasedir().getCanonicalPath();
-                        String copyLibsPath = copyLibsDirectory.getCanonicalPath();
-                        if (!copyLibsPath.startsWith(projectPath)) {
-                            // Flag an error but allow processing to continue in case dependencies, if any, are not actually referenced by the app.
-                            log.error("The directory indicated by the copyLibsDirectory parameter must be within the Maven project directory when the container option is specified.");
-                        }
+        Object containerProp = proj.getProperties().get("container");
+        if (containerProp != null && containerProp instanceof String && Boolean.getBoolean((String) containerProp)) {
+            try {
+                // Set up the config to replace the absolute path names with ${variable}/target type references
+                config.setProjectRoot(proj.getBasedir().getCanonicalPath());
+                config.setSourceOnDiskName("${"+DevUtil.DEVMODE_PROJECT_ROOT+"}");
+                if (copyLibsDirectory == null) { // in container mode, copy dependencies from .m2 dir to the target dir to mount in container
+                    copyLibsDirectory = new File(proj.getBasedir(), PROJECT_ROOT_TARGET_LIBS);
+                } else {
+                    // test the user defined copyLibsDirectory parameter for use in a container
+                    String projectPath = proj.getBasedir().getCanonicalPath();
+                    String copyLibsPath = copyLibsDirectory.getCanonicalPath();
+                    if (!copyLibsPath.startsWith(projectPath)) {
+                        // Flag an error but allow processing to continue in case dependencies, if any, are not actually referenced by the app.
+                        log.error("The directory indicated by the copyLibsDirectory parameter must be within the Maven project directory when the container option is specified.");
                     }
-                } catch (IOException e) {
-                    // an IOException here should fail the build
-                    throw new MojoExecutionException("Could not resolve the canonical path of the Maven project or the directory specified in the copyLibsDirectory parameter. Exception message:" + e.getMessage(), e);
                 }
+            } catch (IOException e) {
+                // an IOException here should fail the build
+                throw new MojoExecutionException("Could not resolve the canonical path of the Maven project or the directory specified in the copyLibsDirectory parameter. Exception message:" + e.getMessage(), e);
+            }
         }
 
         LooseWarApplication looseWar = new LooseWarApplication(proj, config);
