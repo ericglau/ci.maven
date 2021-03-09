@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -61,6 +62,7 @@ import org.eclipse.aether.resolution.DependencyResult;
 import org.twdata.maven.mojoexecutor.MojoExecutor.Element;
 
 import io.openliberty.tools.ant.ServerTask;
+import io.openliberty.tools.common.plugins.util.DevCompilePaths;
 import io.openliberty.tools.common.plugins.util.DevUtil;
 import io.openliberty.tools.common.plugins.util.JavaCompilerOptions;
 import io.openliberty.tools.common.plugins.util.PluginExecutionException;
@@ -233,10 +235,9 @@ public class DevMojo extends StartDebugMojoSupport {
         Set<String> existingFeatures;
         Map<String, File> libertyDirPropertyFiles = new HashMap<String, File>();
 
-        public DevMojoUtil(File installDir, File userDir, File serverDirectory, File sourceDirectory,
-                File testSourceDirectory, File configDirectory, File projectDirectory, List<File> resourceDirs,
+        public DevMojoUtil(File installDir, File userDir, File serverDirectory, List<DevCompilePaths> devCompilePaths, File configDirectory, File projectDirectory, List<File> resourceDirs,
                 JavaCompilerOptions compilerOptions, String mavenCacheLocation) throws IOException {
-            super(new File(project.getBuild().getDirectory()), serverDirectory, sourceDirectory, testSourceDirectory,
+            super(new File(project.getBuild().getDirectory()), serverDirectory, devCompilePaths,
                     configDirectory, projectDirectory, resourceDirs, hotTests, skipTests, skipUTs, skipITs,
                     project.getArtifactId(), serverStartTimeout, verifyTimeout, verifyTimeout,
                     ((long) (compileWait * 1000L)), libertyDebug, false, false, pollingTest, container, dockerfile,
@@ -770,7 +771,10 @@ public class DevMojo extends StartDebugMojoSupport {
 
         JavaCompilerOptions compilerOptions = getMavenCompilerOptions();
 
-        util = new DevMojoUtil(installDirectory, userDirectory, serverDirectory, sourceDirectory, testSourceDirectory,
+        List<DevCompilePaths> devCompilePaths = new ArrayList<DevCompilePaths>();
+        devCompilePaths.add(new DevCompilePaths(sourceDirectory, outputDirectory, testSourceDirectory, testOutputDirectory));
+
+        util = new DevMojoUtil(installDirectory, userDirectory, serverDirectory, devCompilePaths,
                 configDirectory, project.getBasedir(), resourceDirs, compilerOptions, settings.getLocalRepository());
         util.addShutdownHook(executor);
         util.startServer();
@@ -796,7 +800,7 @@ public class DevMojo extends StartDebugMojoSupport {
         // which is where the server.xml is located if a specific serverXmlFile
         // configuration parameter is not specified.
         try {
-            util.watchFiles(pom, outputDirectory, testOutputDirectory, executor, compileArtifactPaths,
+            util.watchFiles(pom, executor, compileArtifactPaths,
                     testArtifactPaths, serverXmlFile, bootstrapPropertiesFile, jvmOptionsFile);
         } catch (PluginScenarioException e) {
             if (e.getMessage() != null) {
