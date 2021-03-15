@@ -106,7 +106,7 @@ public class CreateServerMojo extends PluginConfigSupport {
                     installDir.mkdirs();
                 }
 
-                log.info("Copying " + files.length + " file" + ((files.length == 1) ? "":"s") + " to " + installDir.getCanonicalPath());
+                log.info("Copying1 " + files.length + " file" + ((files.length == 1) ? "":"s") + " to " + installDir.getCanonicalPath());
                 FileUtils.copyDirectory(libertySettingsFolder, installDir);
             } else {
                 log.info("No custom Liberty configuration files found.");

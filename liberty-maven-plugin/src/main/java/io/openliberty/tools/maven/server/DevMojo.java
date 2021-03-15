@@ -216,6 +216,12 @@ public class DevMojo extends StartDebugMojoSupport {
     private boolean keepTempDockerfile;
 
     /**
+     * If true, run dev mode in a light mode where it only does compilations
+     */
+    @Parameter(property = "light", defaultValue = "false")
+    private boolean lightMode;
+
+    /**
      * Set the container option.
      * 
      * @param container whether dev mode should use a container
@@ -241,7 +247,9 @@ public class DevMojo extends StartDebugMojoSupport {
                     project.getArtifactId(), serverStartTimeout, verifyTimeout, verifyTimeout,
                     ((long) (compileWait * 1000L)), libertyDebug, false, false, pollingTest, container, dockerfile,
                     dockerRunOpts, dockerBuildTimeout, skipDefaultPorts, compilerOptions, keepTempDockerfile,
-                    mavenCacheLocation);
+                    mavenCacheLocation, lightMode);
+
+            if (lightMode) return;
 
             ServerFeature servUtil = getServerFeatureUtil();
             this.libertyDirPropertyFiles = BasicSupport.getLibertyDirectoryPropertyFiles(installDir, userDir,
@@ -335,7 +343,7 @@ public class DevMojo extends StartDebugMojoSupport {
         public void stopServer() {
             super.serverFullyStarted.set(false);
 
-            if (container) {
+            if (container || lightMode) {
                 // TODO stop the container instead
                 return;
             }
@@ -594,6 +602,8 @@ public class DevMojo extends StartDebugMojoSupport {
 
         @Override
         public void checkConfigFile(File configFile, File serverDir) {
+            if (lightMode) return;
+            
             try {
                 ServerFeature servUtil = getServerFeatureUtil();
                 Set<String> features = servUtil.getServerFeatures(serverDir, libertyDirPropertyFiles);
@@ -704,7 +714,13 @@ public class DevMojo extends StartDebugMojoSupport {
 
         processContainerParams();
 
-        if (!container) {
+        if (lightMode) {
+            // TODO support hotTests in light mode
+            log.info("Light mode detected. Skipping tests");
+            skipTests = true;
+        }
+
+        if (!(container || lightMode)) {
             if (serverDirectory.exists()) {
                 if (ServerStatusUtil.isServerRunning(installDirectory, super.outputDirectory, serverName)) {
                     throw new MojoExecutionException("The server " + serverName
@@ -738,18 +754,20 @@ public class DevMojo extends StartDebugMojoSupport {
         log.debug("Test Source directory: " + testSourceDirectory);
         log.debug("Test Output directory: " + testOutputDirectory);
 
-        if (isUsingBoost()) {
-            log.info("Running boost:package");
-            runBoostMojo("package");
-        } else {
-            runLibertyMojoCreate();
-            // If non-container, install features before starting server. Otherwise, user
-            // should have "RUN features.sh" in their Dockerfile if they want features to be
-            // installed.
-            if (!container) {
-                runLibertyMojoInstallFeature(null, null);
-            }
-            runLibertyMojoDeploy();
+        if (!lightMode) {
+            if (isUsingBoost()) {
+                log.info("Running boost:package");
+                runBoostMojo("package");
+            } else {
+                runLibertyMojoCreate();
+                // If non-container, install features before starting server. Otherwise, user
+                // should have "RUN features.sh" in their Dockerfile if they want features to be
+                // installed.
+                if (!container) {
+                    runLibertyMojoInstallFeature(null, null);
+                }
+                runLibertyMojoDeploy();
+            }   
         }
         // resource directories
         List<File> resourceDirs = new ArrayList<File>();
@@ -1120,6 +1138,8 @@ public class DevMojo extends StartDebugMojoSupport {
      */
     @Override
     protected void runLibertyMojoCreate() throws MojoExecutionException {
+        if (lightMode) return;
+
         if (container) {
             log.debug("runLibertyMojoCreate check for installDirectory and serverDirectory");
             if (!installDirectory.isDirectory()) {
