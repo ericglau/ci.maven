@@ -62,7 +62,7 @@ import org.eclipse.aether.resolution.DependencyResult;
 import org.twdata.maven.mojoexecutor.MojoExecutor.Element;
 
 import io.openliberty.tools.ant.ServerTask;
-import io.openliberty.tools.common.plugins.util.DevCompilePaths;
+import io.openliberty.tools.common.plugins.util.DevModule;
 import io.openliberty.tools.common.plugins.util.DevUtil;
 import io.openliberty.tools.common.plugins.util.JavaCompilerOptions;
 import io.openliberty.tools.common.plugins.util.PluginExecutionException;
@@ -235,7 +235,7 @@ public class DevMojo extends StartDebugMojoSupport {
         Set<String> existingFeatures;
         Map<String, File> libertyDirPropertyFiles = new HashMap<String, File>();
 
-        public DevMojoUtil(File installDir, File userDir, File serverDirectory, List<DevCompilePaths> devCompilePaths, File configDirectory, File projectDirectory, List<File> resourceDirs,
+        public DevMojoUtil(File installDir, File userDir, File serverDirectory, List<DevModule> devCompilePaths, File configDirectory, File projectDirectory, List<File> resourceDirs,
                 JavaCompilerOptions compilerOptions, String mavenCacheLocation) throws IOException {
             super(new File(project.getBuild().getDirectory()), serverDirectory, devCompilePaths,
                     configDirectory, projectDirectory, resourceDirs, hotTests, skipTests, skipUTs, skipITs,
@@ -771,8 +771,8 @@ public class DevMojo extends StartDebugMojoSupport {
 
         JavaCompilerOptions compilerOptions = getMavenCompilerOptions();
 
-        List<DevCompilePaths> devCompilePaths = new ArrayList<DevCompilePaths>();
-        devCompilePaths.add(new DevCompilePaths(sourceDirectory, outputDirectory, testSourceDirectory, testOutputDirectory));
+        List<DevModule> devCompilePaths = new ArrayList<DevModule>();
+        devCompilePaths.add(new DevModule(sourceDirectory, outputDirectory, testSourceDirectory, testOutputDirectory));
 
         util = new DevMojoUtil(installDirectory, userDirectory, serverDirectory, devCompilePaths,
                 configDirectory, project.getBasedir(), resourceDirs, compilerOptions, settings.getLocalRepository());
