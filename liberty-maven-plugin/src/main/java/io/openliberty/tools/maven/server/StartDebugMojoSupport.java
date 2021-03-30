@@ -53,6 +53,7 @@ import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginManagement;
 import org.apache.maven.plugin.BuildPluginManager;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.tools.ant.taskdefs.Copy;
@@ -121,6 +122,12 @@ public class StartDebugMojoSupport extends BasicSupport {
 
     @Parameter
     protected List<String> jvmOptions;
+
+    /**
+     * The current plugin's descriptor. This is auto-filled by Maven 3.
+     */
+    @Parameter( defaultValue = "${plugin}", readonly = true )
+    private PluginDescriptor plugin;
 
     private enum PropertyType {
         BOOTSTRAP("liberty.bootstrap."),
@@ -202,12 +209,21 @@ public class StartDebugMojoSupport extends BasicSupport {
     }
     
     protected Plugin getLibertyPlugin() {
+        // Try getting the version from Maven 3's plugin descriptor
+        String version = null;
+        if (plugin != null && plugin.getPlugin() != null) {
+            version = plugin.getVersion();
+            log.debug("Setting plugin version to " + version);
+        }
         Plugin plugin = project.getPlugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID + ":" + LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID);
         if (plugin == null) {
             plugin = getPluginFromPluginManagement(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID);
         }
         if (plugin == null) {
             plugin = plugin(LIBERTY_MAVEN_PLUGIN_GROUP_ID, LIBERTY_MAVEN_PLUGIN_ARTIFACT_ID, "LATEST");
+        }
+        if (version != null) {
+            plugin.setVersion(version);
         }
         return plugin;
     }
