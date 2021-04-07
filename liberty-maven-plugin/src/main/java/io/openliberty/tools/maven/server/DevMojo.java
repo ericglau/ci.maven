@@ -719,6 +719,11 @@ public class DevMojo extends StartDebugMojoSupport {
                     runCompileMojoLogWarning();
                 }
                 return;
+            } else {
+                List<MavenProject> upstreamProjects = graph.getUpstreamProjects(project, true);
+                for (MavenProject p : upstreamProjects) {
+                    log.info("FOUND UPSTREAM PROJECT " + p + " with basedir " + p.getBasedir() + ", source classpath " + p.getCompileClasspathElements() + ", target classpath " + p.getTestClasspathElements());
+                }
             }
         }
 
