@@ -15,8 +15,6 @@
  */
 package io.openliberty.tools.maven.server;
 
-import org.apache.maven.plugins.annotations.Parameter;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,22 +26,24 @@ import java.util.Set;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.collection.CollectRequest;
-import org.eclipse.aether.resolution.DependencyRequest;
-import org.eclipse.aether.resolution.DependencyResolutionException;
-import org.eclipse.aether.resolution.DependencyResult;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.mojo.pluginsupport.util.ArtifactItem;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.collection.CollectResult;
+import org.eclipse.aether.collection.DependencyCollectionException;
+import org.eclipse.aether.resolution.DependencyResolutionException;
 
 import io.openliberty.tools.common.plugins.config.ServerConfigDropinXmlDocument;
 import io.openliberty.tools.common.plugins.util.InstallFeatureUtil;
+import io.openliberty.tools.common.plugins.util.InstallFeatureUtil.ProductProperties;
 import io.openliberty.tools.common.plugins.util.PluginExecutionException;
 import io.openliberty.tools.common.plugins.util.PluginScenarioException;
-import io.openliberty.tools.common.plugins.util.InstallFeatureUtil.ProductProperties;
 import io.openliberty.tools.maven.BasicSupport;
 import io.openliberty.tools.maven.InstallFeatureSupport;
 
@@ -206,8 +206,14 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         List<Dependency> dependencies = dm.getDependencies();
         List<Artifact> artifacts = new ArrayList<Artifact>();
         for (Dependency dep : dependencies) {
-            Artifact artifact = getArtifact(dep.getGroupId(), dep.getArtifactId(), dep.getType(), dep.getVersion());
-            artifacts.add(artifact);
+            ArtifactItem item = new ArtifactItem();
+            item.setGroupId(dep.getGroupId());
+            item.setArtifactId(dep.getArtifactId());
+            // force the collection to get only the pom, not the actual artifact type
+            item.setType("pom");
+            item.setVersion(dep.getVersion());
+
+            artifacts.add(getArtifact(item));
         }
 
         List<List<org.eclipse.aether.graph.DependencyNode>> allPaths = new ArrayList<List<org.eclipse.aether.graph.DependencyNode>>();
@@ -221,35 +227,39 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             collectRequest.setRoot(dependency);
             collectRequest.setRepositories(repositories);
             
-            // is there a way to modify the dependency request to not download dependencies?
-            DependencyRequest depRequest = new DependencyRequest(collectRequest, null);
+            CollectResult collectResult;
+            try {
+                // builds the dependency graph without downloading actual artifact files
+                collectResult = repositorySystem.collectDependencies(repoSession, collectRequest);
 
-            // is there a way to resolve dependencies without downloading them?
-            DependencyResult dependencyResult = repositorySystem.resolveDependencies(repoSession, depRequest);
-            org.eclipse.aether.graph.DependencyNode rootNode = dependencyResult.getRoot();
-            org.eclipse.aether.graph.DependencyFilter depFilter = new org.eclipse.aether.util.filter.PatternInclusionsDependencyFilter(includesPattern);
-            org.eclipse.aether.util.graph.visitor.PathRecordingDependencyVisitor filteringVisitor =  new org.eclipse.aether.util.graph.visitor.PathRecordingDependencyVisitor(depFilter);
-            rootNode.accept(filteringVisitor);
-            List<List<org.eclipse.aether.graph.DependencyNode>> nodeList = filteringVisitor.getPaths();
-            if (nodeList == null || nodeList.isEmpty()) {
-                log.debug("No Paths");
-            }
-            else {
-                for (List<org.eclipse.aether.graph.DependencyNode> pathList : nodeList) {
-                    allPaths.add(pathList);
-                    log.debug("Path added");
+                org.eclipse.aether.graph.DependencyNode rootNode = collectResult.getRoot();
+                org.eclipse.aether.graph.DependencyFilter depFilter = new org.eclipse.aether.util.filter.PatternInclusionsDependencyFilter(
+                        includesPattern);
+                org.eclipse.aether.util.graph.visitor.PathRecordingDependencyVisitor filteringVisitor = new org.eclipse.aether.util.graph.visitor.PathRecordingDependencyVisitor(
+                        depFilter);
+                rootNode.accept(filteringVisitor);
+                List<List<org.eclipse.aether.graph.DependencyNode>> nodeList = filteringVisitor.getPaths();
+                if (nodeList == null || nodeList.isEmpty()) {
+                    log.debug("No Paths");
+                } else {
+                    for (List<org.eclipse.aether.graph.DependencyNode> pathList : nodeList) {
+                        allPaths.add(pathList);
+                        log.debug("Path added");
+                    }
                 }
+            } catch (DependencyCollectionException e) {
+                log.error("Could not collect dependencies", e);
             }
         }
 
         int i = 0;
         for (List<org.eclipse.aether.graph.DependencyNode> pathList : allPaths) {
-            log.debug("----------------------------------------------------------");
-            log.debug("<<< Path " + ++i + " >>>");
+            log.info("----------------------------------------------------------");
+            log.info("<<< Path " + ++i + " >>>");
             for (org.eclipse.aether.graph.DependencyNode node : pathList) {
-                log.debug(node.getArtifact().toString());
+                log.info(node.getArtifact().toString());
             }
-            log.debug("----------------------------------------------------------");
+            log.info("----------------------------------------------------------");
         }
     }
 }
