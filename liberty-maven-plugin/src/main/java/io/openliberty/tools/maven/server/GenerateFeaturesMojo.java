@@ -34,10 +34,7 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.maven.MavenExecutionException;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -105,7 +102,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
-                List<ArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
+                Set<ArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
                 for (ArtifactItem artifact : featureDefinedMavenArtifacts) {
                     filterDependency(getFilter(artifact), publicFeatures);
                 }
@@ -139,7 +136,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         }
     }
 
-    private List<ArtifactItem> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws Exception {
+    private Set<ArtifactItem> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws Exception {
         // get list of all mavenCoordinate items from .feature files in OL repo
         File featureVisibilityDir = new File(openLibertyRepoDir, "dev/com.ibm.websphere.appserver.features/visibility");
         if (!featureVisibilityDir.exists()) {
@@ -151,7 +148,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
         log.info("All features size " + allFeatureFiles.size());
 
-        List<ArtifactItem> allArtifactItems = new ArrayList<ArtifactItem>();
+        // unique set of artifact items (to avoid duplicates)
+        Set<ArtifactItem> allArtifactItems = new HashSet<ArtifactItem>();
 
         for (File featureFile : allFeatureFiles) {
             log.info(featureFile.getAbsolutePath());
@@ -165,7 +163,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         return allArtifactItems;
     }
     
-    private void addArtifactsFromFeatureFile(File featureFile, List<ArtifactItem> allArtifactItems) throws Exception {
+    private void addArtifactsFromFeatureFile(File featureFile, Set<ArtifactItem> allArtifactItems) throws Exception {
         BufferedReader reader = new BufferedReader(new FileReader(featureFile));
         StringBuilder sb = new StringBuilder();
         while (reader.ready()) {
@@ -197,7 +195,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
     }
 
     private String getFilter(ArtifactItem artifact) {
-        return ":" + artifact.getArtifactId() + "::" + artifact.getVersion();
+        return artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion();
     }
 
     private void generateFeatures() throws PluginExecutionException {
