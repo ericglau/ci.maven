@@ -16,8 +16,10 @@
 package io.openliberty.tools.maven.server;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ import org.codehaus.mojo.pluginsupport.util.ArtifactItem;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.CollectResult;
 import org.eclipse.aether.collection.DependencyCollectionException;
+import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.resolution.DependencyResolutionException;
 
 import io.openliberty.tools.common.plugins.config.ServerConfigDropinXmlDocument;
@@ -64,6 +67,9 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
     @Parameter(property = "includes")
     private String includes;
+
+    @Parameter(property = "openLibertyRepo")
+    private String openLibertyRepo;
 
     /*
      * (non-Javadoc)
@@ -252,14 +258,92 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             }
         }
 
+        Set<String> publicFeatures = getPublicFeatures();
+
+        Map<String, Integer> publicFeatureOccurrences = new HashMap<String, Integer>();
+
         int i = 0;
         for (List<org.eclipse.aether.graph.DependencyNode> pathList : allPaths) {
             log.info("----------------------------------------------------------");
             log.info("<<< Path " + ++i + " >>>");
-            for (org.eclipse.aether.graph.DependencyNode node : pathList) {
+            // for each node within the path list, go up the dependencies until a public feature is found
+            String publicFeature = null;
+            for (int j = pathList.size() - 1; j>=0; j--) {
+                org.eclipse.aether.graph.DependencyNode node = pathList.get(j);
                 log.info(node.getArtifact().toString());
+                if (isPublicFeature(node, publicFeatures)) {
+                    if (publicFeature == null) {
+                        log.info("- Found public feature!");
+                        publicFeature = node.getArtifact().getArtifactId();
+                        Integer previousOccurrences = publicFeatureOccurrences.get(publicFeature);
+                        if (previousOccurrences == null) {
+                            previousOccurrences = 0;
+                        }
+                        publicFeatureOccurrences.put(publicFeature, previousOccurrences + 1);
+                    } else {
+                        log.info("- Ignoring parent");
+                        // TODO keep track of this for reporting purposes
+                    }
+                }
             }
             log.info("----------------------------------------------------------");
         }
+
+        String mostCommonPublicFeature = null;
+        int mostFeatureOccurrences = 0;
+        //log.info("===== Keyset size " + publicFeatureOccurrences.keySet().size()); 
+        for (String publicFeature : publicFeatureOccurrences.keySet()) {
+            //log.info("===== Looking at feature " + publicFeature); 
+            int occurrences = publicFeatureOccurrences.get(publicFeature);
+            if (occurrences > mostFeatureOccurrences) {
+                mostCommonPublicFeature = publicFeature;
+                mostFeatureOccurrences = occurrences;
+                log.info("Feature " + mostCommonPublicFeature + " has " + mostFeatureOccurrences + " occurrences");
+            } else if (occurrences == mostFeatureOccurrences) {
+                log.info("===== Found conflict: feature " + publicFeature + " has the same number of occurrences as " + mostCommonPublicFeature);
+            }
+        }
+        log.info("=> Public feature " + mostCommonPublicFeature + " with " + mostFeatureOccurrences + " occurrences");
     }
+
+    // get set of public features artifactIds
+    private Set<String> getPublicFeatures() {
+        if (openLibertyRepo == null) {
+            openLibertyRepo = "../open-liberty";
+        }
+
+        // TODO move this verification to earlier in the process
+        if (!new File(openLibertyRepo).exists()) {
+            try {
+                throw new RuntimeException("open-liberty git repository does not exist at " + new File(openLibertyRepo).getCanonicalPath());
+            } catch (IOException e) {
+                throw new RuntimeException("open-liberty git repository does not exist at " + new File(openLibertyRepo).getAbsolutePath());
+            }
+        }
+
+        File featuresVisibilityDir = new File(openLibertyRepo, "dev/com.ibm.websphere.appserver.features/visibility");
+        // get public folder
+        File publicFolder = new File(featuresVisibilityDir, "public");
+        File[] publicFeatures = publicFolder.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                return file.isDirectory();
+            }
+        });
+        Set<String> result = new HashSet<String>();
+        for (File f : publicFeatures) {
+            // get folder names, populate list
+            // TODO only add real features based on .feature file
+            result.add(f.getName());
+        }
+        log.debug("Public features: " + result);
+        return result;
+    }
+
+    private boolean isPublicFeature(DependencyNode node, Set<String> publicFeatures) {
+        return publicFeatures.contains(node.getArtifact().getArtifactId());
+    }
+
+    
+
 }
