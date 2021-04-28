@@ -264,16 +264,16 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
         int i = 0;
         for (List<org.eclipse.aether.graph.DependencyNode> pathList : allPaths) {
-            log.info("----------------------------------------------------------");
-            log.info("<<< Path " + ++i + " >>>");
+            log.debug("----------------------------------------------------------");
+            log.debug("<<< Path " + ++i + " >>>");
             // for each node within the path list, go up the dependencies until a public feature is found
             String publicFeature = null;
             for (int j = pathList.size() - 1; j>=0; j--) {
                 org.eclipse.aether.graph.DependencyNode node = pathList.get(j);
-                log.info(node.getArtifact().toString());
+                log.debug(node.getArtifact().toString());
                 if (isPublicFeature(node, publicFeatures)) {
                     if (publicFeature == null) {
-                        log.info("- Found public feature!");
+                        log.debug("- Found public feature!");
                         publicFeature = node.getArtifact().getArtifactId();
                         Integer previousOccurrences = publicFeatureOccurrences.get(publicFeature);
                         if (previousOccurrences == null) {
@@ -281,12 +281,12 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                         }
                         publicFeatureOccurrences.put(publicFeature, previousOccurrences + 1);
                     } else {
-                        log.info("- Ignoring parent");
+                        log.debug("- Ignoring parent");
                         // TODO keep track of this for reporting purposes
                     }
                 }
             }
-            log.info("----------------------------------------------------------");
+            log.debug("----------------------------------------------------------");
         }
 
         String mostCommonPublicFeature = null;
@@ -298,12 +298,16 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             if (occurrences > mostFeatureOccurrences) {
                 mostCommonPublicFeature = publicFeature;
                 mostFeatureOccurrences = occurrences;
-                log.info("Feature " + mostCommonPublicFeature + " has " + mostFeatureOccurrences + " occurrences");
+                log.debug("Feature " + mostCommonPublicFeature + " has " + mostFeatureOccurrences + " occurrences");
             } else if (occurrences == mostFeatureOccurrences) {
-                log.info("===== Found conflict: feature " + publicFeature + " has the same number of occurrences as " + mostCommonPublicFeature);
+                log.info("===== CONFLICT: " + publicFeature + " and " + mostCommonPublicFeature + " have the same number of occurrences");
             }
         }
-        log.info("=> Public feature " + mostCommonPublicFeature + " with " + mostFeatureOccurrences + " occurrences");
+        if (publicFeatureOccurrences.size() > 1) {
+            log.info("For dependency " + includesPattern + ", most likely feature is " + mostCommonPublicFeature + ".  Occurrence distribution: " + publicFeatureOccurrences);
+        } else {
+            log.info("For dependency " + includesPattern + ", feature is " + mostCommonPublicFeature);
+        }
     }
 
     // get set of public features artifactIds
