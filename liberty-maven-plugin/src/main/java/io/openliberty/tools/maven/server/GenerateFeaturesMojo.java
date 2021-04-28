@@ -408,14 +408,25 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 mostCommonPublicFeature = publicFeature;
                 mostFeatureOccurrences = occurrences;
                 log.debug("Feature " + mostCommonPublicFeature + " has " + mostFeatureOccurrences + " occurrences");
-            } else if (occurrences == mostFeatureOccurrences) {
-                log.info("===== CONFLICT: " + publicFeature + " and " + mostCommonPublicFeature + " have the same number of occurrences");
             }
         }
         if (publicFeatureOccurrences.size() > 1) {
-            log.info("For dependency " + includesPattern + ", most likely feature is " + mostCommonPublicFeature + ".  Occurrence distribution: " + publicFeatureOccurrences);
+            log.info("Dependency [" + includesPattern + "] -> Feature [" + mostCommonPublicFeature + "].  Occurrences: " + publicFeatureOccurrences);
+            findConflicts(mostFeatureOccurrences, publicFeatureOccurrences);
         } else {
-            log.info("For dependency " + includesPattern + ", feature is " + mostCommonPublicFeature);
+            log.info("Dependency [" + includesPattern + "] -> Feature [" + mostCommonPublicFeature + "]");
+        }
+    }
+
+    private void findConflicts(int mostFeatureOccurrences, Map<String, Integer> publicFeatureOccurrences) {
+        List<String> potentialConflicts = new ArrayList<String>();
+        for (Map.Entry<String,Integer> entry : publicFeatureOccurrences.entrySet()) {
+            if (entry.getValue() == mostFeatureOccurrences) {
+                potentialConflicts.add(entry.getKey());
+            }
+        }
+        if (potentialConflicts.size() > 1) {
+            log.info("===== CONFLICTS: " + potentialConflicts);
         }
     }
 
