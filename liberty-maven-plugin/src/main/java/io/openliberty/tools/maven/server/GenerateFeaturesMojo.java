@@ -15,8 +15,10 @@
  */
 package io.openliberty.tools.maven.server;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,12 +28,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.maven.MavenExecutionException;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -99,8 +105,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
-                List<Artifact> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
-                for (Artifact artifact : featureDefinedMavenArtifacts) {
+                List<ArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
+                for (ArtifactItem artifact : featureDefinedMavenArtifacts) {
                     filterDependency(getFilter(artifact), publicFeatures);
                 }
             } else {
@@ -133,7 +139,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         }
     }
 
-    private List<Artifact> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws MojoExecutionException {
+    private List<ArtifactItem> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws Exception {
         // get list of all mavenCoordinate items from .feature files in OL repo
         File featureVisibilityDir = new File(openLibertyRepoDir, "dev/com.ibm.websphere.appserver.features/visibility");
         if (!featureVisibilityDir.exists()) {
@@ -143,16 +149,54 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         List<File> allFeatureFiles = new ArrayList<File>();
         recursiveAddFeaturesFiles(featureVisibilityDir, allFeatureFiles);
 
-        for (File f : allFeatureFiles) {
-            log.debug(f.getAbsolutePath());
-        }
-
         log.info("All features size " + allFeatureFiles.size());
 
-        return null;
+        List<ArtifactItem> allArtifactItems = new ArrayList<ArtifactItem>();
+
+        for (File featureFile : allFeatureFiles) {
+            log.info(featureFile.getAbsolutePath());
+
+            try {
+                addArtifactsFromFeatureFile(featureFile, allArtifactItems);
+            } catch (IOException e) {
+                log.error("Could not read file " + featureFile, e);
+            }
+        }
+        return allArtifactItems;
+    }
+    
+    private void addArtifactsFromFeatureFile(File featureFile, List<ArtifactItem> allArtifactItems) throws Exception {
+        BufferedReader reader = new BufferedReader(new FileReader(featureFile));
+        StringBuilder sb = new StringBuilder();
+        while (reader.ready()) {
+            sb.append(reader.readLine());
+        }
+        reader.close();
+        String content = sb.toString();
+        
+        final String KEYWORD = "mavenCoordinates";
+        Pattern p = Pattern.compile(KEYWORD + "=\"[^\"]*\"");
+        Matcher m = p.matcher(content);
+        while (m.find()) {
+            String match = m.group();
+            // get the part within quotes
+            String coordinates = match.substring(KEYWORD.length() + 2, match.length() - 1);
+            log.info("File " + featureFile + " has mavenCoordinates " + coordinates);
+
+            String[] tokens = coordinates.split(":");
+            if (tokens.length != 3) {
+                throw new MojoExecutionException("The string " + coordinates
+                        + " is not a valid Maven coordinates string. Expected format is groupId:artifactId:version");
+            }
+            ArtifactItem item = new ArtifactItem();
+            item.setGroupId(tokens[0]);
+            item.setArtifactId((tokens[1]));
+            item.setVersion(tokens[2]);
+            allArtifactItems.add(item);
+        }
     }
 
-    private String getFilter(Artifact artifact) {
+    private String getFilter(ArtifactItem artifact) {
         return ":" + artifact.getArtifactId() + "::" + artifact.getVersion();
     }
 
