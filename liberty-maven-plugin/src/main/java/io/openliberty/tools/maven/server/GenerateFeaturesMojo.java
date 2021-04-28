@@ -17,8 +17,10 @@ package io.openliberty.tools.maven.server;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +30,7 @@ import java.util.Set;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.maven.MavenExecutionException;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
@@ -81,10 +84,76 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             return;
         }
         if (filterDependency) {
-            filterDependency(includes);
+            if (openLibertyRepo == null) {
+                openLibertyRepo = "../open-liberty";
+            }
+            File openLibertyRepoDir = new File(openLibertyRepo);
+    
+            if (!openLibertyRepoDir.exists()) {
+                try {
+                    throw new MojoExecutionException("open-liberty git repository must exist at " + openLibertyRepoDir.getCanonicalPath() + ", or use -DopenLibertyRepo to specify custom location");
+                } catch (IOException e) {
+                    throw new MojoExecutionException("open-liberty git repository must exist at " + openLibertyRepoDir.getAbsolutePath() + ", or use -DopenLibertyRepo to specify custom location");
+                }
+            }
+
+            Set<String> publicFeatures = getPublicFeatures();
+            if (includes == null) {
+                List<Artifact> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
+                for (Artifact artifact : featureDefinedMavenArtifacts) {
+                    filterDependency(getFilter(artifact), publicFeatures);
+                }
+            } else {
+                filterDependency(includes, publicFeatures);
+            }
         } else {
             generateFeatures();
         }
+    }
+
+    private void recursiveAddFeaturesFiles(File dir, List<File> appendedResults) {
+        // add all features files that are directly in this directory 
+        File[] featureFilesArray = dir.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".feature");
+            }
+        });
+        Collections.addAll(appendedResults, featureFilesArray);
+
+        // then recursively call the same method on all of its children dirs
+        File[] subFiles = dir.listFiles();
+        if (subFiles == null) {
+            return;
+        }
+        for (File subFile : subFiles) {
+            if (subFile.isDirectory()) {
+                recursiveAddFeaturesFiles(subFile, appendedResults);
+            }
+        }
+    }
+
+    private List<Artifact> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws MojoExecutionException {
+        // get list of all mavenCoordinate items from .feature files in OL repo
+        File featureVisibilityDir = new File(openLibertyRepoDir, "dev/com.ibm.websphere.appserver.features/visibility");
+        if (!featureVisibilityDir.exists()) {
+            throw new MojoExecutionException(featureVisibilityDir.getAbsolutePath() + " does not exist. Ensure open-liberty git repository is cloned to " + openLibertyRepoDir.getAbsolutePath());
+        }
+
+        List<File> allFeatureFiles = new ArrayList<File>();
+        recursiveAddFeaturesFiles(featureVisibilityDir, allFeatureFiles);
+
+        for (File f : allFeatureFiles) {
+            log.debug(f.getAbsolutePath());
+        }
+
+        log.info("All features size " + allFeatureFiles.size());
+
+        return null;
+    }
+
+    private String getFilter(Artifact artifact) {
+        return ":" + artifact.getArtifactId() + "::" + artifact.getVersion();
     }
 
     private void generateFeatures() throws PluginExecutionException {
@@ -201,7 +270,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         return null;
     }
 
-    private void filterDependency(String includesPattern) throws DependencyResolutionException, MojoExecutionException {
+    private void filterDependency(String includesPattern, Set<String> publicFeatures) throws DependencyResolutionException, MojoExecutionException {
         log.debug("<<<<<<<<<<<< Finding Dependency Paths >>>>>>>>>>>");
         DependencyManagement dm = project.getDependencyManagement();
         // null check for dm
@@ -258,8 +327,6 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             }
         }
 
-        Set<String> publicFeatures = getPublicFeatures();
-
         Map<String, Integer> publicFeatureOccurrences = new HashMap<String, Integer>();
 
         int i = 0;
@@ -312,19 +379,6 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
     // get set of public features artifactIds
     private Set<String> getPublicFeatures() {
-        if (openLibertyRepo == null) {
-            openLibertyRepo = "../open-liberty";
-        }
-
-        // TODO move this verification to earlier in the process
-        if (!new File(openLibertyRepo).exists()) {
-            try {
-                throw new RuntimeException("open-liberty git repository does not exist at " + new File(openLibertyRepo).getCanonicalPath());
-            } catch (IOException e) {
-                throw new RuntimeException("open-liberty git repository does not exist at " + new File(openLibertyRepo).getAbsolutePath());
-            }
-        }
-
         File featuresVisibilityDir = new File(openLibertyRepo, "dev/com.ibm.websphere.appserver.features/visibility");
         // get public folder
         File publicFolder = new File(featuresVisibilityDir, "public");
