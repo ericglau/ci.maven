@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
@@ -77,6 +78,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
     @Parameter(property = "openLibertyRepo")
     private String openLibertyRepo;
 
+    // TODO add a strategy parameter: nearest public feature, or farthest public feature, or farthest-1?
+
     /*
      * (non-Javadoc)
      * @see org.codehaus.mojo.pluginsupport.MojoSupport#doExecute()
@@ -102,7 +105,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
 
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
-                Set<ArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
+                Set<HashableArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
                 for (ArtifactItem artifact : featureDefinedMavenArtifacts) {
                     filterDependency(getFilter(artifact), publicFeatures);
                 }
@@ -136,7 +139,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         }
     }
 
-    private Set<ArtifactItem> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws Exception {
+    private Set<HashableArtifactItem> getFeatureDefinedMavenArtifacts(File openLibertyRepoDir) throws Exception {
         // get list of all mavenCoordinate items from .feature files in OL repo
         File featureVisibilityDir = new File(openLibertyRepoDir, "dev/com.ibm.websphere.appserver.features/visibility");
         if (!featureVisibilityDir.exists()) {
@@ -149,7 +152,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         log.info("All features size " + allFeatureFiles.size());
 
         // unique set of artifact items (to avoid duplicates)
-        Set<ArtifactItem> allArtifactItems = new HashSet<ArtifactItem>();
+        Set<HashableArtifactItem> allArtifactItems = new HashSet<HashableArtifactItem>();
 
         for (File featureFile : allFeatureFiles) {
             log.info(featureFile.getAbsolutePath());
@@ -163,7 +166,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         return allArtifactItems;
     }
     
-    private void addArtifactsFromFeatureFile(File featureFile, Set<ArtifactItem> allArtifactItems) throws Exception {
+    private void addArtifactsFromFeatureFile(File featureFile, Set<HashableArtifactItem> allArtifactItems) throws Exception {
         BufferedReader reader = new BufferedReader(new FileReader(featureFile));
         StringBuilder sb = new StringBuilder();
         while (reader.ready()) {
@@ -186,11 +189,37 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 throw new MojoExecutionException("The string " + coordinates
                         + " is not a valid Maven coordinates string. Expected format is groupId:artifactId:version");
             }
-            ArtifactItem item = new ArtifactItem();
+            HashableArtifactItem item = new HashableArtifactItem();
             item.setGroupId(tokens[0]);
             item.setArtifactId((tokens[1]));
             item.setVersion(tokens[2]);
             allArtifactItems.add(item);
+        }
+    }
+
+    /**
+     * Hashable implementation of ArtifactItem.
+     * Implements the equals and hashCode methods according to group, artifact, and version. 
+     * Ignores other ArtifactItem fields.
+     */
+    private class HashableArtifactItem extends ArtifactItem {
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof HashableArtifactItem)) {
+                return false;
+            }
+            HashableArtifactItem other = (HashableArtifactItem) o;
+            boolean eq = this.getGroupId().equals(other.getGroupId()) && this.getArtifactId().equals(other.getArtifactId()) && this.getVersion().equals(other.getVersion());
+            return eq;
+        }
+
+        @Override
+        public int hashCode() {
+            return new HashCodeBuilder(11, 33). // randomly chosen odd numbers
+            append(getGroupId()).
+            append(getArtifactId()).
+            append(getVersion()).
+            toHashCode();
         }
     }
 
