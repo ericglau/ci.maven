@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Comparator;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -106,7 +107,9 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
                 Set<HashableArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
-                for (ArtifactItem artifact : featureDefinedMavenArtifacts) {
+                List<HashableArtifactItem> sortedArtifacts = new ArrayList<HashableArtifactItem>(featureDefinedMavenArtifacts);
+                Collections.sort(sortedArtifacts, new ArtifactComparator());
+                for (ArtifactItem artifact : sortedArtifacts) {
                     filterDependency(getFilter(artifact), publicFeatures);
                 }
             } else {
@@ -114,6 +117,13 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             }
         } else {
             generateFeatures();
+        }
+    }
+
+    private class ArtifactComparator implements Comparator<HashableArtifactItem> {
+        @Override
+        public int compare(HashableArtifactItem a1, HashableArtifactItem a2) {
+            return (a1.toString().compareTo(a2.toString()));
         }
     }
 
