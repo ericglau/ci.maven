@@ -30,7 +30,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipEntry;
 import java.util.Comparator;
+import java.util.Enumeration;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -43,6 +46,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.apache.tools.ant.taskdefs.Zip;
 import org.codehaus.mojo.pluginsupport.util.ArtifactItem;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.CollectResult;
@@ -79,6 +83,9 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
     @Parameter(property = "openLibertyRepo")
     private String openLibertyRepo;
 
+    @Parameter(property = "classes")
+    private boolean classes;
+
     // TODO add a strategy parameter: nearest public feature, or farthest public feature, or farthest-1?
 
     /*
@@ -107,10 +114,34 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
                 Set<HashableArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
-                List<HashableArtifactItem> sortedArtifacts = new ArrayList<HashableArtifactItem>(featureDefinedMavenArtifacts);
-                Collections.sort(sortedArtifacts, new ArtifactComparator());
-                for (ArtifactItem artifact : sortedArtifacts) {
-                    filterDependency(getFilter(artifact), publicFeatures);
+                List<HashableArtifactItem> sortedArtifactItems = new ArrayList<HashableArtifactItem>(featureDefinedMavenArtifacts);
+                Collections.sort(sortedArtifactItems, new ArtifactComparator());
+                for (ArtifactItem artifactItem : sortedArtifactItems) {
+                    filterDependency(getFilter(artifactItem), publicFeatures);
+
+                    if (classes) {
+                        // resolve artifact file and list its zip contents
+                        try {
+                            Artifact artifact = getArtifact(artifactItem);
+
+                            Set<String> packageNames = new HashSet<String>();
+                            try (ZipFile zipFile = new ZipFile(artifact.getFile())) {
+                                Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
+                                while (zipEntries.hasMoreElements()) {
+                                    ZipEntry element = zipEntries.nextElement();
+                                    String name = element.getName();
+                                    if (!element.isDirectory() && name.endsWith(".class")) {
+                                        if (name.contains("/")) {
+                                            packageNames.add(name.substring(0, name.lastIndexOf("/")));
+                                        }
+                                    }
+                                }
+                            }
+                            log.info("Packages: " + packageNames);                                
+                        } catch (MojoExecutionException e) {
+                            log.warn(e.getMessage());
+                        }
+                    }
                 }
             } else {
                 filterDependency(includes, publicFeatures);
@@ -408,6 +439,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             }
         }
 
+        // TODO if multiple "versions" of a feature e.g. jsp-2.2 and jsp-2.3, consider using latest version instead of the one with most occurrences
         Map<String, Integer> publicFeatureOccurrences = new HashMap<String, Integer>();
 
         int i = 0;
