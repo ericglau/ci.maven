@@ -23,6 +23,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,11 +32,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
-import java.util.Comparator;
-import java.util.Enumeration;
+import java.util.zip.ZipFile;
 
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
@@ -46,7 +48,6 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.apache.tools.ant.taskdefs.Zip;
 import org.codehaus.mojo.pluginsupport.util.ArtifactItem;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.CollectResult;
@@ -110,6 +111,10 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                     throw new MojoExecutionException("open-liberty git repository must exist at " + openLibertyRepoDir.getAbsolutePath() + ", or use -DopenLibertyRepo to specify custom location");
                 }
             }
+
+            final Jsonb jsonb = JsonbBuilder.create();
+            String json = jsonb.toJson("AA");
+            log.info("OUTPUT: " + json);
 
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
