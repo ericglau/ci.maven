@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,11 +36,11 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import jakarta.json.bind.Jsonb;
-import jakarta.json.bind.JsonbBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -55,6 +56,7 @@ import org.eclipse.aether.collection.DependencyCollectionException;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.resolution.DependencyResolutionException;
 
+import io.openliberty.tools.ant.FeatureManagerTask.Feature;
 import io.openliberty.tools.common.plugins.config.ServerConfigDropinXmlDocument;
 import io.openliberty.tools.common.plugins.util.InstallFeatureUtil;
 import io.openliberty.tools.common.plugins.util.InstallFeatureUtil.ProductProperties;
@@ -62,6 +64,8 @@ import io.openliberty.tools.common.plugins.util.PluginExecutionException;
 import io.openliberty.tools.common.plugins.util.PluginScenarioException;
 import io.openliberty.tools.maven.BasicSupport;
 import io.openliberty.tools.maven.InstallFeatureSupport;
+import io.openliberty.tools.maven.server.types.FeatureLookupEntry;
+import io.openliberty.tools.maven.server.types.FeatureLookupTable;
 
 /**
  * This mojo generates the features required in the featureManager element in server.xml.
@@ -112,47 +116,63 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 }
             }
 
-            final Jsonb jsonb = JsonbBuilder.create();
-            String json = jsonb.toJson("AA");
-            log.info("OUTPUT: " + json);
-
+            List<FeatureLookupEntry> featureLookupEntries = new ArrayList<FeatureLookupEntry>();
+            FeatureLookupTable featureLookupTable = new FeatureLookupTable(featureLookupEntries);
+            
             Set<String> publicFeatures = getPublicFeatures();
             if (includes == null) {
                 Set<HashableArtifactItem> featureDefinedMavenArtifacts = getFeatureDefinedMavenArtifacts(openLibertyRepoDir);
                 List<HashableArtifactItem> sortedArtifactItems = new ArrayList<HashableArtifactItem>(featureDefinedMavenArtifacts);
                 Collections.sort(sortedArtifactItems, new ArtifactComparator());
                 for (ArtifactItem artifactItem : sortedArtifactItems) {
-                    filterDependency(getFilter(artifactItem), publicFeatures);
+                    FeatureLookupEntry featureLookupEntry = filterDependency(getFilter(artifactItem), publicFeatures);
 
-                    if (classes) {
-                        // resolve artifact file and list its zip contents
-                        try {
-                            Artifact artifact = getArtifact(artifactItem);
-
-                            Set<String> packageNames = new HashSet<String>();
-                            try (ZipFile zipFile = new ZipFile(artifact.getFile())) {
-                                Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
-                                while (zipEntries.hasMoreElements()) {
-                                    ZipEntry element = zipEntries.nextElement();
-                                    String name = element.getName();
-                                    if (!element.isDirectory() && name.endsWith(".class")) {
-                                        if (name.contains("/")) {
-                                            packageNames.add(name.substring(0, name.lastIndexOf("/")));
+                    if (featureLookupEntry != null) {
+                        featureLookupEntries.add(featureLookupEntry);
+                        if (classes) {
+                            // resolve artifact file and list its zip contents
+                            try {
+                                Artifact artifact = getArtifact(artifactItem);
+    
+                                Set<String> packageNames = new HashSet<String>();
+                                try (ZipFile zipFile = new ZipFile(artifact.getFile())) {
+                                    Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
+                                    while (zipEntries.hasMoreElements()) {
+                                        ZipEntry element = zipEntries.nextElement();
+                                        String name = element.getName();
+                                        if (!element.isDirectory() && name.endsWith(".class")) {
+                                            if (name.contains("/")) {
+                                                packageNames.add(name.substring(0, name.lastIndexOf("/")));
+                                            }
                                         }
                                     }
                                 }
+                                log.info("Packages: " + packageNames);
+                                featureLookupEntry.javaPackageNames = packageNames;
+                            } catch (MojoExecutionException e) {
+                                log.warn(e.getMessage());
                             }
-                            log.info("Packages: " + packageNames);                                
-                        } catch (MojoExecutionException e) {
-                            log.warn(e.getMessage());
                         }
                     }
                 }
             } else {
                 filterDependency(includes, publicFeatures);
             }
+
+            createCSVFile(featureLookupTable);
         } else {
             generateFeatures();
+        }
+    }
+
+
+    String[] HEADERS = { "javaPackageNames", "mavenDependency", "featureName", "occurrences", "conflicts"};
+    public void createCSVFile(FeatureLookupTable featureLookupTable) throws IOException {
+        FileWriter out = new FileWriter("lookuptable.csv");
+        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(HEADERS))) {
+            for (FeatureLookupEntry entry : featureLookupTable.entries) {
+                printer.printRecord(entry.javaPackageNames, entry.mavenDependency, entry.featureName, entry.occurrences, entry.conflicts);
+            }
         }
     }
 
@@ -387,13 +407,13 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         return null;
     }
 
-    private void filterDependency(String includesPattern, Set<String> publicFeatures) throws DependencyResolutionException, MojoExecutionException {
+    private FeatureLookupEntry filterDependency(String includesPattern, Set<String> publicFeatures) throws DependencyResolutionException, MojoExecutionException {
         log.debug("<<<<<<<<<<<< Finding Dependency Paths >>>>>>>>>>>");
         DependencyManagement dm = project.getDependencyManagement();
         // null check for dm
         if (dm == null) {
             log.debug("DependencyManagement is null");
-            return;
+            return null;
         }
         List<Dependency> dependencies = dm.getDependencies();
         List<Artifact> artifacts = new ArrayList<Artifact>();
@@ -486,15 +506,20 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 log.debug("Feature " + mostCommonPublicFeature + " has " + mostFeatureOccurrences + " occurrences");
             }
         }
+        FeatureLookupEntry featureLookupEntry = new FeatureLookupEntry();
+        featureLookupEntry.mavenDependency = includesPattern;
+        featureLookupEntry.featureName = mostCommonPublicFeature;
         if (publicFeatureOccurrences.size() > 1) {
             log.info("Dependency [" + includesPattern + "] -> Feature [" + mostCommonPublicFeature + "].  Occurrences: " + publicFeatureOccurrences);
-            findConflicts(mostFeatureOccurrences, publicFeatureOccurrences);
+            featureLookupEntry.occurrences = publicFeatureOccurrences;
+            findConflicts(mostFeatureOccurrences, publicFeatureOccurrences, featureLookupEntry);
         } else {
             log.info("Dependency [" + includesPattern + "] -> Feature [" + mostCommonPublicFeature + "]");
         }
+        return featureLookupEntry;
     }
 
-    private void findConflicts(int mostFeatureOccurrences, Map<String, Integer> publicFeatureOccurrences) {
+    private void findConflicts(int mostFeatureOccurrences, Map<String, Integer> publicFeatureOccurrences, FeatureLookupEntry featureLookupEntry) {
         List<String> potentialConflicts = new ArrayList<String>();
         for (Map.Entry<String,Integer> entry : publicFeatureOccurrences.entrySet()) {
             if (entry.getValue() == mostFeatureOccurrences) {
@@ -503,6 +528,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         }
         if (potentialConflicts.size() > 1) {
             log.info("===== CONFLICTS: " + potentialConflicts);
+            featureLookupEntry.conflicts = potentialConflicts;
         }
     }
 

@@ -1,5 +1,6 @@
 package io.openliberty.tools.maven.server.types;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -9,8 +10,8 @@ public class FeatureLookupEntry {
     public Set<String> javaPackageNames;
     public String mavenDependency;
     public String featureName;
-    Map<String, Integer> occurrences;
-    public Set<String> conflicts;
+    public Map<String, Integer> occurrences;
+    public List<String> conflicts;
 
     public FeatureLookupEntry() {
         // A default constructor is required
@@ -18,7 +19,7 @@ public class FeatureLookupEntry {
     }
 
     public FeatureLookupEntry(Set<String> javaPackageNames, String mavenDependency, String featureName,
-            Map<String, Integer> occurrences, Set<String> conflicts) {
+            Map<String, Integer> occurrences, List<String> conflicts) {
         this.javaPackageNames = javaPackageNames;
         this.mavenDependency = mavenDependency;
         this.featureName = featureName;
