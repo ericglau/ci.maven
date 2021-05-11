@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -57,6 +58,7 @@ import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.resolution.DependencyResolutionException;
 
 import io.openliberty.tools.ant.FeatureManagerTask.Feature;
+import io.openliberty.tools.ant.install.Version;
 import io.openliberty.tools.common.plugins.config.ServerConfigDropinXmlDocument;
 import io.openliberty.tools.common.plugins.util.InstallFeatureUtil;
 import io.openliberty.tools.common.plugins.util.InstallFeatureUtil.ProductProperties;
@@ -494,6 +496,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             log.debug("----------------------------------------------------------");
         }
 
+        publicFeatureOccurrences = filterHighestVersionsOfPublicFeatures(publicFeatureOccurrences);
+
         String mostCommonPublicFeature = null;
         int mostFeatureOccurrences = 0;
         //log.info("===== Keyset size " + publicFeatureOccurrences.keySet().size()); 
@@ -517,6 +521,54 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             log.info("Dependency [" + includesPattern + "] -> Feature [" + mostCommonPublicFeature + "]");
         }
         return featureLookupEntry;
+    }
+
+    private Map<String, Integer> filterHighestVersionsOfPublicFeatures(Map<String, Integer> origFeatures) {
+        Map<String, VersionAndOccurrence> filtered = new HashMap<String, VersionAndOccurrence>(); // map from feature name without version, to the highest version and number of total occurrences for that feature regardless of version
+        for (String origFeature : origFeatures.keySet()) {
+            String featureWithoutVersion = getFeatureWithoutVersion(origFeature);
+            VersionAndOccurrence tuple = filtered.get(featureWithoutVersion);
+            // if this feature (without version) was found before, just add to its occurrences and track only the highest version in the filtered map
+            if (tuple != null) {
+                tuple.occurrences = tuple.occurrences + origFeatures.get(origFeature); // add to its occurrences
+                BigDecimal newVersion = getFeatureVersion(origFeature);
+                if (getFeatureVersion(origFeature).compareTo(tuple.version) > 0) {
+                    tuple.version = newVersion;
+                }
+            } else {
+                VersionAndOccurrence newTuple = new VersionAndOccurrence();
+                newTuple.occurrences = origFeatures.get(origFeature);
+                newTuple.version = getFeatureVersion(origFeature);
+                filtered.put(featureWithoutVersion, newTuple);
+            }
+        }
+        return convertToFeaturesWithVersion(filtered);
+    }
+
+    private class VersionAndOccurrence {
+        BigDecimal version;
+        Integer occurrences;
+    }
+
+    private Map<String, Integer> convertToFeaturesWithVersion(Map<String, VersionAndOccurrence> map) {
+        Map<String, Integer> result = new HashMap<String, Integer>();
+        for (String featureWithoutVersion : map.keySet()) {
+            VersionAndOccurrence tuple = map.get(featureWithoutVersion);
+            if (tuple.version != null) {
+                result.put(featureWithoutVersion + "-" + tuple.version.toPlainString(), tuple.occurrences);
+            }
+        }
+        return result;
+    }
+
+    private String getFeatureWithoutVersion(String feature) {
+        int versionSplitIndex = feature.lastIndexOf("-");
+        return versionSplitIndex != -1 ? feature.substring(0, versionSplitIndex) : feature;
+    }
+
+    private BigDecimal getFeatureVersion(String feature) {
+        int versionSplitIndex = feature.lastIndexOf("-");
+        return versionSplitIndex != -1 ? new BigDecimal(feature.substring(versionSplitIndex + 1, feature.length())) : null;
     }
 
     private void findConflicts(int mostFeatureOccurrences, Map<String, Integer> publicFeatureOccurrences, FeatureLookupEntry featureLookupEntry) {
