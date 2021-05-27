@@ -56,6 +56,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.apache.tools.ant.taskdefs.Copy;
 import org.apache.tools.ant.types.FileSet;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
@@ -183,12 +184,16 @@ public class StartDebugMojoSupport extends BasicSupport {
     }
     
     protected void runMojo(String groupId, String artifactId, String goal) throws MojoExecutionException {
+        runMojo(groupId, artifactId, goal, project);
+    }
+
+    protected void runMojo(String groupId, String artifactId, String goal, MavenProject mavenProject) throws MojoExecutionException {
         Plugin plugin = getPlugin(groupId, artifactId);
         Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(plugin, goal, log);
         log.info("Running " + artifactId + ":" + goal);
         log.debug("configuration:\n" + config);
         executeMojo(plugin, goal(goal), config,
-                executionEnvironment(project, session, pluginManager));
+                executionEnvironment(mavenProject, session, pluginManager));
     }
     
     /**

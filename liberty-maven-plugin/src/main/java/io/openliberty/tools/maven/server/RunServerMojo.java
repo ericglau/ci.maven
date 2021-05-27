@@ -15,11 +15,16 @@
  */
 package io.openliberty.tools.maven.server;
 
+import java.util.List;
+
+import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.MavenProject;
 
 import io.openliberty.tools.ant.ServerTask;
+import io.openliberty.tools.maven.utils.ExecuteMojoUtil;
 
 /**
  * Start a liberty server
@@ -47,15 +52,46 @@ public class RunServerMojo extends PluginConfigSupport {
         }
         String projectPackaging = project.getPackaging();
 
-        runMojo("org.apache.maven.plugins", "maven-compiler-plugin", "compile");
-
-        if(projectPackaging.equals("ear")) {
-            runMojo("org.apache.maven.plugins", "maven-ear-plugin", "generate-application-xml");
+        // If there are downstream projects (e.g. other modules depend on this module in the Maven Reactor build order),
+        // then skip running Liberty on this module but only run compile.
+        ProjectDependencyGraph graph = session.getProjectDependencyGraph();
+        if (graph != null) {
+            List<MavenProject> downstreamProjects = graph.getDownstreamProjects(project, true);
+            if (!downstreamProjects.isEmpty()) {
+                log.debug("Downstream projects: " + downstreamProjects);
+                if (projectPackaging.equals("ear")) {
+                    runMojo("org.apache.maven.plugins", "maven-ear-plugin", "generate-application-xml");
+                    runMojo("org.apache.maven.plugins", "maven-resources-plugin", "resources");
+                } else {
+                    runMojo("org.apache.maven.plugins", "maven-resources-plugin", "resources");
+                    runMojo("org.apache.maven.plugins", "maven-compiler-plugin", "compile");
+                }
+                //return;
+            }
         }
 
-        runMojo("org.apache.maven.plugins", "maven-resources-plugin", "resources");
-        
-        if(!looseApplication) {
+        //if (!looseApplication) {
+            // List<MavenProject> upstreamProjects = graph.getUpstreamProjects(project, true);
+            // if (!upstreamProjects.isEmpty()) {
+            //     log.info("Upstream projects: " + upstreamProjects);
+            //     for (MavenProject upstreamProject : upstreamProjects) {
+            //         String upstreamPackaging = upstreamProject.getPackaging();
+            //         log.info("Upstream packaging: " + upstreamPackaging);
+            //         switch (upstreamPackaging) {
+            //             case "war":
+            //                 runMojo("org.apache.maven.plugins", "maven-war-plugin", "war", upstreamProject);
+            //                 break;
+            //             case "ear":
+            //                 runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear", upstreamProject);
+            //                 break;
+            //             case "ejb":
+            //                 runMojo("org.apache.maven.plugins", "maven-ejb-plugin", "ejb", upstreamProject);
+            //                 break;
+            //         }
+            //         log.info("Done upstream");
+            //     }
+            // }
+
             switch (projectPackaging) {
                 case "war":
                     runMojo("org.apache.maven.plugins", "maven-war-plugin", "war");
@@ -63,8 +99,13 @@ public class RunServerMojo extends PluginConfigSupport {
                 case "ear":
                     runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear");
                     break;
+                case "ejb":
+                    runMojo("org.apache.maven.plugins", "maven-ejb-plugin", "ejb");
+                    break;
             }
-        }
+        //}
+
+        if(true)return;
         
         runLibertyMojoCreate();
         runLibertyMojoInstallFeature(null, null);
