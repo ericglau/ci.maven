@@ -466,7 +466,6 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             }
         }
 
-        // TODO if multiple "versions" of a feature e.g. jsp-2.2 and jsp-2.3, consider using latest version instead of the one with most occurrences
         Map<String, Integer> publicFeatureOccurrences = new HashMap<String, Integer>();
 
         int i = 0;
@@ -497,6 +496,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         }
 
         publicFeatureOccurrences = filterHighestVersionsOfPublicFeatures(publicFeatureOccurrences);
+
+        publicFeatureOccurrences = filterKnownMappings(includesPattern, publicFeatureOccurrences);
 
         String mostCommonPublicFeature = null;
         int mostFeatureOccurrences = 0;
@@ -541,6 +542,37 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 newTuple.version = getFeatureVersion(origFeature);
                 filtered.put(featureWithoutVersion, newTuple);
             }
+        }
+        return convertToFeaturesWithVersion(filtered);
+    }
+
+    /**
+     * Known mappings, excluding dependency version or feature version
+     */
+    enum KnownMappings {
+
+        MYFACES("org.apache.myfaces.core:myfaces-api", "jsf"),
+        REACTIVE_STREAMS("org.reactivestreams:reactive-streams", "mpReactiveStreams");
+    
+        String dependency;
+        String feature;
+    
+        KnownMappings(String dependency, String feature) {
+            this.dependency = dependency;
+            this.feature = feature;
+        }
+    }
+
+    /**
+     * 
+     * @param mavenDependencyFilterString Maven dependency in filter format e.g. org.apache.myfaces.core:myfaces-api::2.2.12
+     * @param origFeatures Original map of feature occurrences
+     * @return Map of feature occurrences containing only the known mapping(s)
+     */
+    private Map<String, Integer> filterKnownMappings(String mavenDependencyFilterString, Map<String, Integer> origFeatures) {
+        Map<String, Integer> filtered = new HashMap<String, Integer>();
+        for (String origFeature : origFeatures.keySet()) {
+            
         }
         return convertToFeaturesWithVersion(filtered);
     }
