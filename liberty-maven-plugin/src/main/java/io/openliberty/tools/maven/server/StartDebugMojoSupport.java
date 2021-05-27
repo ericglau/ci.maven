@@ -188,7 +188,7 @@ public class StartDebugMojoSupport extends BasicSupport {
     }
 
     protected void runMojo(String groupId, String artifactId, String goal, MavenProject mavenProject) throws MojoExecutionException {
-        Plugin plugin = getPlugin(groupId, artifactId);
+        Plugin plugin = getPlugin(groupId, artifactId, mavenProject);
         Xpp3Dom config = ExecuteMojoUtil.getPluginGoalConfig(plugin, goal, log);
         log.info("Running " + artifactId + ":" + goal);
         log.debug("configuration:\n" + config);
@@ -204,9 +204,13 @@ public class StartDebugMojoSupport extends BasicSupport {
      * @return Plugin
      */
     protected Plugin getPlugin(String groupId, String artifactId) {
-        Plugin plugin = project.getPlugin(groupId + ":" + artifactId);
+        return getPlugin(groupId, artifactId, project);
+    }
+
+    protected static Plugin getPlugin(String groupId, String artifactId, MavenProject mavenProject) {
+        Plugin plugin = mavenProject.getPlugin(groupId + ":" + artifactId);
         if (plugin == null) {
-            plugin = getPluginFromPluginManagement(groupId, artifactId);
+            plugin = getPluginFromPluginManagement(groupId, artifactId, mavenProject);
         }
         if (plugin == null) {
             plugin = plugin(groupId(groupId), artifactId(artifactId), version("RELEASE"));
@@ -235,8 +239,12 @@ public class StartDebugMojoSupport extends BasicSupport {
     }
 
     protected Plugin getPluginFromPluginManagement(String groupId, String artifactId) {
+        return getPluginFromPluginManagement(groupId, artifactId, project);
+    }
+
+    protected static Plugin getPluginFromPluginManagement(String groupId, String artifactId, MavenProject mavenProject) {
         Plugin retVal = null;
-        PluginManagement pm = project.getPluginManagement();
+        PluginManagement pm = mavenProject.getPluginManagement();
         if (pm != null) {
             for (Plugin p : pm.getPlugins()) {
                 if (groupId.equals(p.getGroupId()) && artifactId.equals(p.getArtifactId())) {

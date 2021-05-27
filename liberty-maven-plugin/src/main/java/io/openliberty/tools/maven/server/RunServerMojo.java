@@ -66,31 +66,40 @@ public class RunServerMojo extends PluginConfigSupport {
                     runMojo("org.apache.maven.plugins", "maven-resources-plugin", "resources");
                     runMojo("org.apache.maven.plugins", "maven-compiler-plugin", "compile");
                 }
-                //return;
+                return;
             }
         }
 
-        //if (!looseApplication) {
-            // List<MavenProject> upstreamProjects = graph.getUpstreamProjects(project, true);
-            // if (!upstreamProjects.isEmpty()) {
-            //     log.info("Upstream projects: " + upstreamProjects);
-            //     for (MavenProject upstreamProject : upstreamProjects) {
-            //         String upstreamPackaging = upstreamProject.getPackaging();
-            //         log.info("Upstream packaging: " + upstreamPackaging);
-            //         switch (upstreamPackaging) {
-            //             case "war":
-            //                 runMojo("org.apache.maven.plugins", "maven-war-plugin", "war", upstreamProject);
-            //                 break;
-            //             case "ear":
-            //                 runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear", upstreamProject);
-            //                 break;
-            //             case "ejb":
-            //                 runMojo("org.apache.maven.plugins", "maven-ejb-plugin", "ejb", upstreamProject);
-            //                 break;
-            //         }
-            //         log.info("Done upstream");
-            //     }
-            // }
+        if (!looseApplication) {
+            List<MavenProject> upstreamProjects = graph.getUpstreamProjects(project, true);
+            if (!upstreamProjects.isEmpty()) {
+                log.info("===== Upstream projects: " + upstreamProjects);
+                for (MavenProject upstreamProject : upstreamProjects) {
+                    String upstreamPackaging = upstreamProject.getPackaging();
+                    log.info("Upstream packaging: " + upstreamPackaging);
+
+
+                    MavenProject currentProject = session.getCurrentProject();
+                    session.setCurrentProject(upstreamProject);
+
+                    switch (upstreamPackaging) {
+                        case "war":
+                            runMojo("org.apache.maven.plugins", "maven-war-plugin", "war");
+                            break;
+                        case "ear":
+                            runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear");
+                            break;
+                        case "ejb":
+                            runMojo("org.apache.maven.plugins", "maven-ejb-plugin", "ejb");
+                            break;
+                    }
+                    log.info("===== Done upstream project " + upstreamProject);
+                    session.setCurrentProject(currentProject);
+                    log.info("===== Restored project " + session.getCurrentProject());
+                }
+                log.info("===== Done upstream projects");
+
+            }
 
             switch (projectPackaging) {
                 case "war":
@@ -99,13 +108,9 @@ public class RunServerMojo extends PluginConfigSupport {
                 case "ear":
                     runMojo("org.apache.maven.plugins", "maven-ear-plugin", "ear");
                     break;
-                case "ejb":
-                    runMojo("org.apache.maven.plugins", "maven-ejb-plugin", "ejb");
-                    break;
             }
-        //}
+        }
 
-        if(true)return;
         
         runLibertyMojoCreate();
         runLibertyMojoInstallFeature(null, null);
