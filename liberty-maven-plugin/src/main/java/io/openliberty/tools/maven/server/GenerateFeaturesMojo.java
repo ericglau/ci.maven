@@ -495,9 +495,9 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
             log.debug("----------------------------------------------------------");
         }
 
-        publicFeatureOccurrences = filterHighestVersionsOfPublicFeatures(publicFeatureOccurrences);
-
-        publicFeatureOccurrences = filterKnownMappings(includesPattern, publicFeatureOccurrences);
+        Map<String, VersionAndOccurrence> featureVersionOccurrencesMap = filterHighestVersionsOfPublicFeatures(publicFeatureOccurrences);
+        featureVersionOccurrencesMap = fixKnownMappings(includesPattern, featureVersionOccurrencesMap);
+        publicFeatureOccurrences = convertToFeaturesWithVersion(featureVersionOccurrencesMap);
 
         String mostCommonPublicFeature = null;
         int mostFeatureOccurrences = 0;
@@ -524,7 +524,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
         return featureLookupEntry;
     }
 
-    private Map<String, Integer> filterHighestVersionsOfPublicFeatures(Map<String, Integer> origFeatures) {
+    private Map<String, VersionAndOccurrence> filterHighestVersionsOfPublicFeatures(Map<String, Integer> origFeatures) {
         Map<String, VersionAndOccurrence> filtered = new HashMap<String, VersionAndOccurrence>(); // map from feature name without version, to the highest version and number of total occurrences for that feature regardless of version
         for (String origFeature : origFeatures.keySet()) {
             String featureWithoutVersion = getFeatureWithoutVersion(origFeature);
@@ -543,7 +543,7 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
                 filtered.put(featureWithoutVersion, newTuple);
             }
         }
-        return convertToFeaturesWithVersion(filtered);
+        return filtered;
     }
 
     /**
@@ -569,12 +569,26 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
      * @param origFeatures Original map of feature occurrences
      * @return Map of feature occurrences containing only the known mapping(s)
      */
-    private Map<String, Integer> filterKnownMappings(String mavenDependencyFilterString, Map<String, Integer> origFeatures) {
-        Map<String, Integer> filtered = new HashMap<String, Integer>();
-        for (String origFeature : origFeatures.keySet()) {
-            
+    private Map<String, VersionAndOccurrence> fixKnownMappings(String mavenDependencyFilterString, Map<String, VersionAndOccurrence> origFeatures) {
+        Map<String, VersionAndOccurrence> filtered = new HashMap<String, VersionAndOccurrence>();
+
+        for (KnownMappings m : KnownMappings.values()) {
+            String[] tokens = mavenDependencyFilterString.split(":");
+            String search = mavenDependencyFilterString;
+            if (tokens.length >= 1) {
+                search = tokens[0] + ":" + tokens[1];
+            }
+            if (m.dependency.equals(search)) {
+                // see if origFeatures has the mapped feature
+                if (origFeatures.keySet().contains(m.feature)) {
+                    filtered.put(m.feature, origFeatures.get(m.feature));
+                    // return just with one entry
+                    return filtered;
+                }
+            }
         }
-        return convertToFeaturesWithVersion(filtered);
+        // otherwise return everything
+        return origFeatures;
     }
 
     private class VersionAndOccurrence {
