@@ -552,7 +552,8 @@ public class GenerateFeaturesMojo extends InstallFeatureSupport {
     enum KnownMappings {
 
         MYFACES("org.apache.myfaces.core:myfaces-api", "jsf"),
-        REACTIVE_STREAMS("org.reactivestreams:reactive-streams", "mpReactiveStreams");
+        REACTIVE_STREAMS("org.reactivestreams:reactive-streams", "mpReactiveStreams"),
+        PERSISTENCE("org.eclipse.persistence:javax.persistence", "jpa");
     
         String dependency;
         String feature;
